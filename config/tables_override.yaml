@@ -22,9 +22,18 @@
 # exclude a table from the pipeline entirely. Every field is optional
 # except `name`; anything you don't set keeps its auto-detected default.
 #
+# `schema` is optional too. Set it when the same table name exists in
+# more than one schema and you only want the override to apply to one
+# of them; leave it out and the override applies to that table name in
+# every schema (a schema-specific entry always wins over a schema-less
+# one for the same name).
+#
 # overrides:
 #   - name: orders
 #     load_mode: incremental
+#   - name: orders
+#     schema: sales
+#     load_mode: full            # sales.orders stays full even though dbo.orders (above) is incremental
 #   - name: staging_scratch_table
 #     exclude: true
 

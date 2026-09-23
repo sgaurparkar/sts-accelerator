@@ -15,6 +15,7 @@ Table discovery happens inside discover_incremental_tables (not at
 DAG-parse time) and is fanned out with dynamic task mapping — see the
 comment in migration_dag.py for why. Requires Airflow 2.3+.
 """
+
 import os
 import sys
 from datetime import datetime, timedelta

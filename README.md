@@ -8,9 +8,19 @@ SQLite demo path has been removed entirely.
 
 ## What "dynamic" means here
 
-Nothing about which tables to migrate, their columns, or their primary
-keys is hand-typed anywhere in this repo:
+Nothing about which schemas or tables to migrate, their columns, or
+their primary keys is hand-typed anywhere in this repo:
 
+- **Schemas** — leave `source.schemas` empty in `config/settings.yaml`
+  and `src/discovery/table_discovery.py` discovers every schema that
+  owns at least one base table straight off SQL Server (system/security
+  schemas excluded), so `python main.py --all` and both DAGs cover a
+  brand-new schema the moment it exists in the source database — zero
+  config change. Set `source.schemas` to an explicit list to scope the
+  pipeline to only those schemas instead. `--schema <name>` on the CLI
+  scopes a single run (`--all`, `--list`) to one schema, and
+  disambiguates `--table <name>` when the same table name exists in
+  more than one schema (or just pass `--table schema.table`).
 - **Tables & primary keys** — `src/discovery/table_discovery.py` reads
   `INFORMATION_SCHEMA` / key-constraint catalog views straight off SQL
   Server every run. Add a table to the source database and it's picked
@@ -141,7 +151,13 @@ after every table in that run has finished (success or failure).
 3. `pip install -r requirements.txt`
 4. Fill in `.env` (copy from `.env.example`) with your real SQL Server/Azure/GCP values.
 5. See what gets discovered before running anything: `python3 main.py --list`
+   (add `--schema dbo` to see just one schema)
 6. Test one table manually: `python3 main.py --table customers`
+   — or `python3 main.py --table customers --schema dbo` / the
+   `python3 main.py --table dbo.customers` shorthand if the same table
+   name exists in more than one schema
+7. Migrate every table in every discovered schema: `python3 main.py --all`
+   (add `--schema dbo` to scope a run to just one schema)
 7. Once that works, deploy the DAGs to Composer:
    ```
    gcloud composer environments storage dags import \

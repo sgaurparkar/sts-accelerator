@@ -9,6 +9,11 @@
 --                      watermark is newer, so re-merging an
 --                      already-applied batch (the failure-recovery
 --                      path) can never clobber newer data.
+--
+-- {dataset} here is the source-schema-scoped dataset (e.g.
+-- migrated_data_dbo, migrated_data_sales — see
+-- src/bigquery/dataset_naming.py), never the shared base dataset
+-- that only holds the operational/control tables.
 
 MERGE `{project}.{dataset}.{table}` T
 USING `{project}.{dataset}.{table}_staging` S

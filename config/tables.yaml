@@ -2,44 +2,26 @@ _generated_by: "src/planner/table_planner.py \u2014 rewritten on every run, do n
   \ hand-edit"
 tables:
 - schema: dbo
-  name: __migration_rownum__no_pk2
-  primary_key:
-  - _migration_row_id
-  synthetic_key: true
-  load_mode: full
-- schema: dbo
-  name: dataset_10000
+  name: test10
   primary_key:
   - id
   synthetic_key: false
   load_mode: full
 - schema: dbo
-  name: dataset_5000
+  name: test11
   primary_key:
-  - ID
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: sales
+  name: test10
+  primary_key:
+  - id
   synthetic_key: false
   load_mode: full
-- schema: dbo
-  name: no_pk
+- schema: sales
+  name: test11
   primary_key:
   - source_row_id
   synthetic_key: true
-  load_mode: full
-- schema: dbo
-  name: no_pk2
-  primary_key:
-  - source_row_id
-  synthetic_key: true
-  load_mode: full
-- schema: dbo
-  name: no_pk3
-  primary_key:
-  - source_row_id
-  synthetic_key: true
-  load_mode: full
-- schema: dbo
-  name: sales_data
-  primary_key:
-  - SalesRecordID
-  synthetic_key: false
   load_mode: full

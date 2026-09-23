@@ -9,18 +9,46 @@ source:
   host: sql-to-gcp-poc-server2.database.windows.net
   database: sales_poc
   driver: "ODBC Driver 18 for SQL Server"
-  schemas: [dbo]                   # which SQL Server schemas to discover tables from
+  schemas: []                      # which SQL Server schemas to discover tables from.
+                                    # Leave empty ([]) to auto-discover EVERY schema that
+                                    # owns at least one base table, straight off SQL Server
+                                    # (system/security schemas excluded) — this is what makes
+                                    # `python main.py --all` cover every schema with zero
+                                    # config change. Set an explicit list (e.g. [dbo, sales])
+                                    # to scope the pipeline to only those schemas instead.
+                                    # Each schema gets its own BigQuery dataset — see
+                                    # gcp.bq_dataset below.
   # username/password are read from .env as SQL_SERVER_USERNAME / SQL_SERVER_PASSWORD
 
 azure:
   storage_account: storageaccount8791511009
   container: migration-staging
   # sas_token / connection string are read from .env — never stored here
-
+  upload:
+    # Large batches (e.g. 20 lakh+ rows) produce large Parquet files;
+    # the SDK's default timeouts are too short for a slow moment on a
+    # constrained network. Raise these if you still see
+    # ('Connection aborted.', TimeoutError(...)) at very large batch sizes.
+    connection_timeout_seconds: 300
+    read_timeout_seconds: 300
+    max_block_size_bytes: 8388608   # 8 MB per block
+    max_concurrency: 4              # blocks uploaded in parallel
+    max_retries: 3
+    retry_backoff_seconds: 5        # doubles each retry: 5s, 10s, 20s
+    
 gcp:
   project_id: sts-accelerator
   region: asia-south1
   gcs_bucket: migration-landing-bucket
+  # Base dataset name. Migrated DATA tables are NOT put directly in
+  # this dataset — each source SQL Server schema gets its own dataset
+  # derived from this base name, e.g. schema `dbo` -> `migrated_data_dbo`,
+  # schema `sales` -> `migrated_data_sales` (see
+  # src/bigquery/dataset_naming.py), so the source schema structure
+  # stays visibly separated in BigQuery instead of being flattened.
+  # This base name IS used as-is for the shared operational/control
+  # tables (migration_pipeline_logs, migration_checkpoint,
+  # migration_audit, migration_report), which are not schema-scoped.
   bq_dataset: migrated_data
 
 transfer:
@@ -33,7 +61,18 @@ extraction:
   # Parquet file (<table>_part0000.parquet, _part0001.parquet, ...) and
   # loaded/merged independently, so a failure partway through a table
   # only has to redo the pages after the last committed checkpoint.
-  batch_size: 5000
+  batch_size: 500
+  # OPTIONAL. Date-based cutoff: only rows whose `updatedAt` column is
+  # on/before this date (updatedAt <= cutoff_date) are pulled from the
+  # source. Applied to EVERY table this pipeline migrates, regardless
+  # of load_mode ("full" and "incremental" alike) — see
+  # src/pipeline/table_pipeline.py. Every source table is expected to
+  # have an `updatedAt` column; the filter is applied server-side in
+  # SQL Server alongside the usual keyset (PK) pagination, so it
+  # doesn't disturb resumability.
+  # Accepts "YYYY-MM-DD" or a full ISO timestamp. Leave null (or delete
+  # this line) to disable the filter and extract every row.
+  cutoff_date: 2026-09-22
 metadata:
   # Table names for the operational tables this pipeline maintains in
   # BigQuery itself (created automatically if they don't exist — see
