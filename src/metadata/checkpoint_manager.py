@@ -10,6 +10,10 @@ is still sitting there.
 
 On the NEXT cycle, before extracting a table we read its checkpoint:
   - status == "COMPLETED"  -> table finished cleanly last time.
+    table_pipeline.run_table() SKIPS a COMPLETED load_mode="full" table
+    entirely (no extract / upload / transfer / load) unless force=True
+    is passed. Incremental tables are never skipped, because their whole
+    purpose is to re-check the source for newly appended rows.
   - status == "FAILED" or "IN_PROGRESS" (a run that crashed mid-table
     never got to write COMPLETED) -> resume extraction starting right
     after last_pk_json instead of from the top, so we don't re-pull
@@ -31,17 +35,22 @@ class CheckpointManager:
         self.table_ref = f"{self.project_id}.{self.dataset}.{checkpoint_table}"
         self.client = bigquery.Client(project=self.project_id)
 
-    def get_checkpoint(self, table_name: str) -> dict | None:
+    def get_checkpoint(self, table_name: str, schema_name: str | None = None) -> dict | None:
+        """Latest checkpoint row for a table. Pass schema_name so that
+        dbo.orders and sales.orders never read each other's checkpoint."""
+        schema_filter = "AND schema_name = @schema_name" if schema_name else ""
         query = f"""
             SELECT last_pk_json, last_batch_index, status, run_id, updated_at
             FROM `{self.table_ref}`
             WHERE table_name = @table_name
+            {schema_filter}
             ORDER BY updated_at DESC
             LIMIT 1
         """
-        job_config = bigquery.QueryJobConfig(
-            query_parameters=[bigquery.ScalarQueryParameter("table_name", "STRING", table_name)]
-        )
+        params = [bigquery.ScalarQueryParameter("table_name", "STRING", table_name)]
+        if schema_name:
+            params.append(bigquery.ScalarQueryParameter("schema_name", "STRING", schema_name))
+        job_config = bigquery.QueryJobConfig(query_parameters=params)
         rows = list(self.client.query(query, job_config=job_config).result())
         if not rows:
             return None
@@ -53,16 +62,21 @@ class CheckpointManager:
             "run_id": row.run_id,
         }
 
-    def resume_point(self, table_name: str) -> tuple[dict | None, int, bool]:
+    def resume_point(self, table_name: str, schema_name: str | None = None,
+                     checkpoint: dict | None = None) -> tuple[dict | None, int, bool]:
         """Returns (resume_after_pk, next_batch_index, is_resumed).
         (None, 0, False) means start this table from scratch — either no
-        checkpoint exists yet, or the last run finished COMPLETED.
+        checkpoint exists yet, or the last run finished COMPLETED (in which
+        case table_pipeline has already decided whether to skip the table
+        or deliberately re-run it from the top).
 
         is_resumed is True whenever the last run left this table FAILED
-        or IN_PROGRESS (i.e. it never reached COMPLETED) — table_pipeline
-        uses this to force this run's load_mode to "incremental" for
-        safety, regardless of the table's normal planned load_mode."""
-        checkpoint = self.get_checkpoint(table_name)
+        or IN_PROGRESS (i.e. it never reached COMPLETED).
+
+        Pass `checkpoint` (the dict from get_checkpoint) to avoid a second
+        BigQuery query when the caller already fetched it."""
+        if checkpoint is None:
+            checkpoint = self.get_checkpoint(table_name, schema_name)
         if not checkpoint or checkpoint["status"] == "COMPLETED":
             return None, 0, False
         # FAILED or IN_PROGRESS -> pick up right after the last committed batch.

@@ -63,7 +63,9 @@ with DAG(
         settings = _load_yaml("settings.yaml")
         logging_config = _load_yaml("logging.yaml")
         run_id = context["dag_run"].run_id
-        return run_table(settings, logging_config, table_cfg, run_id)
+        # Trigger with conf {"force": true} to reload tables that already COMPLETED.
+        force = bool((context["dag_run"].conf or {}).get("force", False))
+        return run_table(settings, logging_config, table_cfg, run_id, force=force)
 
     @task(trigger_rule="all_done")  # generate the report even if some tables failed
     def generate_report(_upstream_results) -> dict:

@@ -1,33 +1,7 @@
-"""
-metadata_manager.py
-
-Every stage (extraction, upload, transfer, load/merge) calls
-log_stage_start / log_stage_end around its own work. Each event is
-written to TWO places so logs actually stay maintained:
-
-  1. Raw JSON, one object per event, under
-     gcs://<bucket>/pipeline_logs/raw/<run_id>/<event_id>.json
-     This used to be a single read-modify-write JSONL blob per run_id,
-     which lost events under concurrent workers (two tasks read the
-     same blob, both append locally, second write clobbers the
-     first's line) and used a local path by default that doesn't
-     survive across Composer workers at all. One immutable object per
-     event has no read-modify-write race and no ephemeral-disk risk.
-
-  2. A row in the BigQuery table named in settings.yaml
-     (metadata.log_table, default migration_pipeline_logs) via a
-     streaming insert, so logs are queryable with SQL instead of
-     grepping JSON files in GCS.
-
-Local disk is only ever used when explicitly testing offline
-(raw_log_path pointed at a non-gcs:// path) — production always uses
-gcs:// so logs survive across workers and retries.
-"""
 import datetime
 import json
 import os
 import uuid
-
 from google.cloud import storage as gcs_storage
 
 try:

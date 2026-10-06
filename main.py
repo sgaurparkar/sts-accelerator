@@ -1,36 +1,6 @@
-"""
-main.py
-
-Run one table through the whole pipeline manually, without Airflow —
-useful for testing in Cloud Shell before trusting it to a scheduled
-DAG. The table doesn't need to be listed anywhere: its config
-(primary key, load_mode, batching) is discovered live from SQL Server
-by src/planner/table_planner.py. Every load is insert-only — there is
-no watermark column anywhere in this pipeline.
-
-Schema is fully dynamic (see src/discovery/table_discovery.py): leave
-source.schemas empty in config/settings.yaml and every schema in the
-source database is discovered automatically, so --all always covers
-every schema with zero config change. --schema lets you scope a run
-(or disambiguate --table) to exactly one schema.
-
-Usage:
-  python main.py --table customers                       # schema inferred if the name is unique
-  python main.py --table customers --schema dbo           # explicit schema
-  python main.py --table dbo.customers                    # schema.table shorthand
-  python main.py --table customers gcs                    # stop after the batch lands in GCS
-  python main.py --table customers bq                     # full pipeline (same as the default)
-  python main.py --all                                    # migrate every dynamically discovered table, every schema
-  python main.py --all --schema dbo                       # ...only tables in schema dbo
-  python main.py --all gcs                                # ...stopping each table's batches at GCS
-  python main.py --list                                   # show every dynamically discovered table
-  python main.py --list --schema dbo                      # ...only schema dbo
-  python main.py --report                                 # (re)generate the tablewise status report
-"""
 import argparse
 import sys
 import uuid
-
 import yaml
 
 from src.planner.table_planner import (
@@ -44,14 +14,16 @@ from src.pipeline.table_pipeline import run_table
 from src.reporting.report_generator import ReportGenerator
 
 
-def run_one(settings, logging_config, table_cfg, run_id, stage="bq"):
+def run_one(settings, logging_config, table_cfg, run_id, stage="bq", force=False):
     print(f"\n{'=' * 70}")
     print(f"Table:  {table_cfg['schema']}.{table_cfg['name']}  "
           f"(load_mode={table_cfg['load_mode']}, pk={table_cfg['primary_key']})")
     print(f"Run ID: {run_id}")
     if stage == "gcs":
         print("Stage:  stopping after GCS (BigQuery load will be skipped)")
-    result = run_table(settings, logging_config, table_cfg, run_id, stage=stage)
+    if force:
+        print("Force:  reloading even if the table already COMPLETED")
+    result = run_table(settings, logging_config, table_cfg, run_id, stage=stage, force=force)
     print(f"Done: {result}")
     return result
 
@@ -67,11 +39,6 @@ def load_yaml(path):
 
 
 def split_schema_table(raw: str, cli_schema: str | None) -> tuple[str, str | None]:
-    """Accepts either a bare table name ('customers') or a
-    'schema.table' shorthand ('dbo.customers') for --table, and
-    reconciles it with an explicit --schema flag if both were given.
-    Returns (table_name, schema_or_None). Raises SystemExit on
-    anything ambiguous or contradictory."""
     if "." in raw:
         parts = raw.split(".")
         if len(parts) != 2 or not parts[0] or not parts[1]:
@@ -104,6 +71,9 @@ def main():
                                                               "table and exit")
     parser.add_argument("--report", action="store_true",
                          help="(Re)generate the tablewise status report and exit")
+    parser.add_argument("--force", action="store_true",
+                         help="Re-run tables even if their last run already COMPLETED. "
+                              "By default a COMPLETED load_mode=full table is skipped.")
     parser.add_argument("stage", nargs="?", choices=["gcs", "bq"], default="bq",
                          help="How far to run the pipeline: 'gcs' stops once each batch "
                               "has landed in GCS (extract -> Azure -> STS transfer -> GCS), "
@@ -154,14 +124,16 @@ def main():
             if args.stage == "gcs":
                 print("Stage:  stopping after GCS for every table (BigQuery load will be skipped)")
 
-            succeeded, failed = [], []
+            succeeded, skipped, failed = [], [], []
             for table_cfg in tables:
                 # each table gets its own run_id (like migrate_table.expand() does
                 # per Airflow task instance) so checkpoints/audit rows don't collide
                 run_id = f"{batch_run_id}:{table_cfg['schema']}.{table_cfg['name']}"
                 try:
-                    run_one(settings, logging_config, table_cfg, run_id, stage=args.stage)
-                    succeeded.append(f"{table_cfg['schema']}.{table_cfg['name']}")
+                    result = run_one(settings, logging_config, table_cfg, run_id,
+                                      stage=args.stage, force=args.force)
+                    label = f"{table_cfg['schema']}.{table_cfg['name']}"
+                    (skipped if result.get("status") == "SKIPPED" else succeeded).append(label)
                 except Exception as exc:
                     # don't let one table's failure stop the rest of the batch —
                     # same all_done/resume-later behavior as the Airflow DAG
@@ -169,9 +141,12 @@ def main():
                     failed.append(f"{table_cfg['schema']}.{table_cfg['name']}")
 
             print(f"\n{'=' * 70}")
-            print(f"Batch complete: {len(succeeded)} succeeded, {len(failed)} failed")
+            print(f"Batch complete: {len(succeeded)} succeeded, {len(skipped)} skipped "
+                  f"(already COMPLETED), {len(failed)} failed")
             if succeeded:
                 print(f"  Succeeded: {', '.join(succeeded)}")
+            if skipped:
+                print(f"  Skipped:   {', '.join(skipped)}  (use --force to reload)")
             if failed:
                 print(f"  Failed:    {', '.join(failed)}")
 
@@ -188,7 +163,7 @@ def main():
         table_name, schema = split_schema_table(args.table, args.schema)
         table_cfg = get_table_plan(settings, table_name, schema=schema)
         run_id = str(uuid.uuid4())
-        run_one(settings, logging_config, table_cfg, run_id, stage=args.stage)
+        run_one(settings, logging_config, table_cfg, run_id, stage=args.stage, force=args.force)
 
     except (TableNotFoundError, AmbiguousTableError, SchemaNotFoundError) as e:
         raise SystemExit(f"Error: {e}")

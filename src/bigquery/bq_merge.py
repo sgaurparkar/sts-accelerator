@@ -33,6 +33,7 @@ key" is the only check a pure-insert merge requires.
 from google.cloud import bigquery
 
 from src.bigquery.dataset_naming import dataset_for_schema
+from src.planner.type_mapper import build_bigquery_schema
 
 
 class BqMerge:
@@ -59,11 +60,29 @@ class BqMerge:
             f"{table_name}_part{batch_index:04d}.parquet"
         )
 
+        # Explicit schema is required here: for Parquet (a self-describing
+        # format) combined with WRITE_TRUNCATE, BigQuery will otherwise
+        # silently REDEFINE the staging table's schema from the Parquet
+        # file's own physical types instead of preserving the NUMERIC /
+        # TIMESTAMP / etc. types it was created with (see bq_control_tables.py).
+        # Concretely: pandas reads SQL Server DECIMAL/NUMERIC columns as
+        # float64, so the Parquet file stores them as physical DOUBLE — and
+        # without a pinned schema, staging's column would flip from NUMERIC
+        # to FLOAT64 on load, which then fails the MERGE into the target
+        # (FLOAT64 cannot be inserted into a NUMERIC column). Passing the
+        # same schema used to create the table forces BigQuery to convert
+        # into it on load instead.
+        schema = [
+            bigquery.SchemaField(col["name"], col["type"])
+            for col in build_bigquery_schema(table_cfg["columns"])
+        ]
+
         print(f"[bq_merge] Loading batch {batch_index} for {schema_name}.{table_name} "
               f"into staging: {uri} -> {staging_ref}")
         job_config = bigquery.LoadJobConfig(
             source_format=bigquery.SourceFormat.PARQUET,
             write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+            schema=schema,
         )
         load_job = self.client.load_table_from_uri(uri, staging_ref, job_config=job_config)
         load_job.result()

@@ -2,26 +2,20 @@ _generated_by: "src/planner/table_planner.py \u2014 rewritten on every run, do n
   \ hand-edit"
 tables:
 - schema: dbo
-  name: test10
+  name: dataset-06-10
   primary_key:
   - id
   synthetic_key: false
   load_mode: full
 - schema: dbo
-  name: test11
-  primary_key:
-  - source_row_id
-  synthetic_key: true
-  load_mode: full
-- schema: sales
-  name: test10
+  name: dummy_dataset_100000--06-10
   primary_key:
   - id
   synthetic_key: false
   load_mode: full
 - schema: sales
-  name: test11
+  name: dataset02--06-10
   primary_key:
-  - source_row_id
-  synthetic_key: true
+  - id
+  synthetic_key: false
   load_mode: full

@@ -241,4 +241,4 @@ class SqlExtractor:
 
     def _run(self, query: str, params: dict | None = None) -> pd.DataFrame:
         with self._get_engine().connect() as conn:
-            return pd.read_sql_query(text(query), conn, params=params or {})
+            return pd.read_sql_query(text(query), conn, params=params or {}, coerce_float=False)

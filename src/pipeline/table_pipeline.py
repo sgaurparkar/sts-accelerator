@@ -1,41 +1,3 @@
-"""
-table_pipeline.py
-
-The one place the full extract -> parquet -> Azure -> STS -> BigQuery
-merge chain is implemented, so main.py, migration_dag.py and
-incremental_dag.py all run the exact same logic instead of three
-copies drifting apart. Everything it needs (primary key, load_mode,
-batch size...) comes from the dynamic table_cfg built by
-src/planner/table_planner.py — there is nothing table-specific
-hardcoded here.
-
-Every merge is insert-only (see src/bigquery/bq_merge.py) — matching
-purely on primary key, there is no UPDATE branch anywhere in this
-pipeline. Extraction is always restricted by extraction.cutoff_date in
-config/settings.yaml when set: only rows whose source `updatedAt`
-column is on/before that date (`updatedAt <= cutoff_date`) are pulled,
-for every table regardless of load_mode.
-
-Every source SQL Server schema (dbo, sales, ...) is kept as its own
-BigQuery dataset (see src/bigquery/dataset_naming.py), and as its own
-path segment through local Parquet, Azure Blob, and GCS — see
-parquet_writer.py, blob_uploader.py and sts_client.py — so the source
-schema structure is preserved end to end, not just in BigQuery.
-
-Failure/resume strategy:
-  - Before starting, check CheckpointManager for this table. If the
-    last run left it IN_PROGRESS or FAILED, resume extraction right
-    after the last committed primary key instead of from batch 0.
-  - After each batch is loaded to staging and MERGEd into the target,
-    commit a checkpoint (IN_PROGRESS with that batch's last PK).
-  - On success of the whole table, mark COMPLETED. On any exception,
-    leave the last good checkpoint in place (already IN_PROGRESS from
-    the last successful batch) and record the failure in the audit
-    table — the next cycle picks up exactly where this one stopped.
-  - Because the merge is insert-only and matches on primary key,
-    re-running (resuming) a batch that already landed is always a
-    safe no-op — nothing to guard with a watermark.
-"""
 import datetime
 
 from src.extraction.sql_extractor import SqlExtractor
@@ -50,8 +12,15 @@ from src.metadata.checkpoint_manager import CheckpointManager
 
 
 def run_table(settings: dict, logging_config: dict, table_cfg: dict, run_id: str,
-              stage: str = "bq") -> dict:
+              stage: str = "bq", force: bool = False) -> dict:
     """
+    force: by default a load_mode="full" table whose latest checkpoint is
+    COMPLETED (and whose BigQuery target actually holds rows) is SKIPPED —
+    nothing is extracted, uploaded, transferred or loaded, and the function
+    returns status="SKIPPED". Pass force=True (main.py --force) to re-run it
+    anyway. Incremental tables are never skipped: re-checking the source
+    for newly appended rows is their whole purpose.
+
     stage: "bq" (default) runs the full chain through the BigQuery staging
     load + merge, exactly as before. "gcs" stops each batch right after it's
     confirmed present in GCS — the staging load, merge, checkpoint commit,
@@ -69,7 +38,7 @@ def run_table(settings: dict, logging_config: dict, table_cfg: dict, run_id: str
     metadata = MetadataManager(logging_config, settings["gcp"])
     control_tables = BqControlTables(settings)
     checkpoint = CheckpointManager(settings, metadata_cfg.get("checkpoint_table", "migration_checkpoint"))
-    batch_size = settings.get("extraction", {}).get("batch_size", 500)
+    batch_size = settings.get("extraction", {}).get("batch_size", 25000)
 
     cutoff_date = settings.get("extraction", {}).get("cutoff_date")
 
@@ -87,7 +56,35 @@ def run_table(settings: dict, logging_config: dict, table_cfg: dict, run_id: str
     control_tables.ensure_audit_table(metadata_cfg.get("audit_table", "migration_audit"))
     print(f"[table_pipeline] [planning] target={target_ref} | staging={staging_ref}")
 
-    resume_after, start_batch_index, is_resumed = checkpoint.resume_point(table_name)
+    checkpoint_row = checkpoint.get_checkpoint(table_name, schema_name)
+
+    if (not force
+            and table_cfg["load_mode"] == "full"
+            and checkpoint_row
+            and checkpoint_row["status"] == "COMPLETED"):
+        # Guard against a stale checkpoint: if someone dropped/emptied the
+        # BigQuery target after the last run, COMPLETED no longer means
+        # "the data is there", so fall through and reload instead of skipping.
+        target_rows = _count_rows(control_tables, target_ref)
+        if target_rows > 0:
+            print(f"[table_pipeline] ===== {qualified_name}: SKIPPED — already COMPLETED "
+                  f"(run_id={checkpoint_row['run_id']}, {target_rows} row(s) in {target_ref}). "
+                  f"Use --force to reload. =====")
+            metadata.log_stage_end(run_id, table_name, "pipeline", "SKIPPED",
+                                    schema_name=schema_name, rows_processed=0,
+                                    extra={"reason": "checkpoint COMPLETED",
+                                           "completed_run_id": checkpoint_row["run_id"],
+                                           "rows_in_bigquery": target_rows})
+            # Deliberately NO audit row: the report shows each table's latest
+            # audit entry, and a 0-row SKIPPED entry would overwrite the real
+            # last-load stats (rows processed, timings) with zeros.
+            return {"table": table_name, "status": "SKIPPED",
+                    "batches_processed": 0, "rows_processed": 0}
+        print(f"[table_pipeline] [planning] {qualified_name} checkpoint says COMPLETED but "
+              f"{target_ref} is empty/missing — reloading from batch 0.")
+
+    resume_after, start_batch_index, is_resumed = checkpoint.resume_point(
+        table_name, schema_name, checkpoint=checkpoint_row)
     if is_resumed:
         print(f"[table_pipeline] [planning] Resuming {qualified_name} from batch "
               f"{start_batch_index} (last committed key: {resume_after})")
@@ -123,7 +120,8 @@ def run_table(settings: dict, logging_config: dict, table_cfg: dict, run_id: str
             print(f"[table_pipeline] [extraction] {qualified_name} batch {real_batch_index}: "
                   f"writing Parquet ...")
             metadata.log_stage_start(run_id, table_name, "extraction", schema_name)
-            parquet_path = write_parquet(df, table_name, schema_name, real_batch_index)
+            parquet_path = write_parquet(df, table_name, schema_name, real_batch_index,
+                                          columns=table_cfg["columns"])
             batch_parquet_paths.append((real_batch_index, parquet_path))
             metadata.log_stage_end(run_id, table_name, "extraction", "SUCCESS",
                                     schema_name=schema_name, batch_index=real_batch_index,
@@ -288,6 +286,17 @@ def run_table(settings: dict, logging_config: dict, table_cfg: dict, run_id: str
         _write_audit_row(control_tables, metadata_cfg, run_id, table_cfg, "FAILED",
                           batches_processed, rows_processed, start_batch_index, started_at, str(e))
         raise
+
+
+def _count_rows(control_tables: BqControlTables, table_ref: str) -> int:
+    """COUNT(*) on a native BigQuery table (answered from metadata, so it
+    scans no data). Returns 0 if the table can't be read."""
+    try:
+        rows = list(control_tables.client.query(f"SELECT COUNT(*) AS n FROM `{table_ref}`").result())
+        return int(rows[0].n) if rows else 0
+    except Exception as e:
+        print(f"[table_pipeline] WARNING: could not count rows in {table_ref}: {e}")
+        return 0
 
 
 def _write_audit_row(control_tables: BqControlTables, metadata_cfg: dict, run_id: str, table_cfg: dict,
