@@ -61,7 +61,7 @@ extraction:
   # Parquet file (<table>_part0000.parquet, _part0001.parquet, ...) and
   # loaded/merged independently, so a failure partway through a table
   # only has to redo the pages after the last committed checkpoint.
-  batch_size: 25000
+  batch_size: 1000
   # OPTIONAL. Date-based cutoff: only rows whose `updatedAt` column is
   # on/before this date (updatedAt <= cutoff_date) are pulled from the
   # source. Applied to EVERY table this pipeline migrates, regardless

@@ -38,7 +38,7 @@ def run_table(settings: dict, logging_config: dict, table_cfg: dict, run_id: str
     metadata = MetadataManager(logging_config, settings["gcp"])
     control_tables = BqControlTables(settings)
     checkpoint = CheckpointManager(settings, metadata_cfg.get("checkpoint_table", "migration_checkpoint"))
-    batch_size = settings.get("extraction", {}).get("batch_size", 25000)
+    batch_size = settings.get("extraction", {}).get("batch_size", 1000)
 
     cutoff_date = settings.get("extraction", {}).get("cutoff_date")
 

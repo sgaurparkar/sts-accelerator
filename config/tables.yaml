@@ -13,6 +13,24 @@ tables:
   - id
   synthetic_key: false
   load_mode: full
+- schema: dbo
+  name: India_Cities_LatLng
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: dbo
+  name: test1
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full
+- schema: dbo
+  name: test11
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full
 - schema: sales
   name: dataset02--06-10
   primary_key:

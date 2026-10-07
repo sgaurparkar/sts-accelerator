@@ -36,6 +36,15 @@ import pandas as pd
 # written as Parquet DECIMAL, not DOUBLE.
 _DECIMAL_SOURCE_TYPES = {"decimal", "numeric", "money", "smallmoney"}
 
+# SQL Server integer types -> BigQuery INT64 (see MSSQL_TO_BQ). pandas
+# reads a nullable integer column that actually contains a NULL as
+# float64 (NaN can't live in an int64 column), which df.to_parquet()
+# then writes as Parquet DOUBLE — and BigQuery refuses to load a DOUBLE
+# column into an INT64 field ("Parquet column 'x' has type DOUBLE which
+# does not match the target cpp_type INT64"). Casting these columns to
+# pandas' nullable Int64 keeps the values whole and writes Parquet INT64.
+_INTEGER_SOURCE_TYPES = {"int", "bigint", "smallint", "tinyint"}
+
 # BigQuery NUMERIC's own default scale — used only as a last-resort
 # fallback if SQL Server didn't report a scale for some reason.
 _DEFAULT_SCALE = 9
@@ -55,6 +64,17 @@ def _decimal_column_scales(columns: list[dict] | None) -> dict[str, int]:
             scale = col.get("scale")
             scales[col["name"]] = scale if scale is not None else _DEFAULT_SCALE
     return scales
+
+
+def _integer_columns(columns: list[dict] | None) -> list[str]:
+    """Names of every column whose SQL Server source type is an integer
+    type (and therefore an INT64 field in the BigQuery tables)."""
+    if not columns:
+        return []
+    return [
+        col["name"] for col in columns
+        if str(col.get("source_type", "")).split("(")[0].strip().lower() in _INTEGER_SOURCE_TYPES
+    ]
 
 
 def _to_fixed_decimal(value, scale: int):
@@ -85,6 +105,12 @@ def write_parquet(df: pd.DataFrame, table_name: str, schema_name: str, batch_ind
         if col_name in df.columns:
             df[col_name] = df[col_name].apply(lambda v, s=scale: _to_fixed_decimal(v, s))
 
+    # Integer columns that picked up a NULL arrive as float64 — put them
+    # back to a nullable integer type so Parquet gets INT64, not DOUBLE.
+    for col_name in _integer_columns(columns):
+        if col_name in df.columns and df[col_name].dtype != "Int64":
+            df[col_name] = df[col_name].astype("Int64")
+
     print(f"[parquet_writer] Writing {len(df):,} row(s) to {path} ...")
     df.to_parquet(path, compression="snappy", index=False)
     print(f"[parquet_writer] Wrote {path} ({os.path.getsize(path):,} bytes)")
@@ -100,22 +126,25 @@ def remove_column(path: str, column_name: str) -> str:
     been the thing to drop it, via BqMerge.drop_synthetic_column). A
     no-op if the column isn't present, so it's always safe to call.
 
-    Any decimal-family columns round-trip through pandas/pyarrow as
-    Decimal objects (object dtype), so re-writing here preserves the
-    DECIMAL Parquet type write_parquet established above — nothing
-    decimal-specific needs to happen in this function.
+    The file is rewritten through pyarrow directly (not pandas) so every
+    column keeps its exact Parquet type — a pandas round-trip would turn
+    a nullable INT64 column back into float64/DOUBLE, and BigQuery would
+    then reject it, exactly the failure write_parquet's Int64 cast
+    prevents.
     """
     if not os.path.exists(path):
         raise FileNotFoundError(f"Cannot strip column '{column_name}': {path} does not exist")
 
-    df = pd.read_parquet(path)
-    if column_name not in df.columns:
+    import pyarrow.parquet as pq
+
+    table = pq.read_table(path)
+    if column_name not in table.column_names:
         print(f"[parquet_writer] '{column_name}' already absent from {path} — nothing to strip")
         return path
 
     print(f"[parquet_writer] Stripping internal column '{column_name}' from {path} ...")
-    df = df.drop(columns=[column_name])
-    df.to_parquet(path, compression="snappy", index=False)
+    table = table.select([c for c in table.column_names if c != column_name])
+    pq.write_table(table, path, compression="snappy")
     print(f"[parquet_writer] Rewrote {path} without '{column_name}' "
-          f"({os.path.getsize(path):,} bytes, {len(df.columns)} column(s) remain)")
+          f"({os.path.getsize(path):,} bytes, {len(table.column_names)} column(s) remain)")
     return path
