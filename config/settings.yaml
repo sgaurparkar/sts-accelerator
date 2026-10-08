@@ -5,9 +5,9 @@
 # in .env (see .env.example) — never here.
 
 source:
-  type: mssql                      # only mssql is supported (SQLite demo removed)
-  host: sql-to-gcp-poc-server2.database.windows.net
-  database: sales_poc
+  type: mssql                      # only mssql is supported
+  host: sql-to-gcp-poc-server2.database.windows.net   # fallback only — overridden by --region (see `regions:` below)
+  database: sales_poc                                  # same database name on every regional server unless a region sets its own
   driver: "ODBC Driver 18 for SQL Server"
   schemas: []                      # which SQL Server schemas to discover tables from.
                                     # Leave empty ([]) to auto-discover EVERY schema that
@@ -18,8 +18,33 @@ source:
                                     # to scope the pipeline to only those schemas instead.
                                     # Each schema gets its own BigQuery dataset — see
                                     # gcp.bq_dataset below.
-  # username/password are read from .env as SQL_SERVER_USERNAME / SQL_SERVER_PASSWORD
+  # username/password are read from .env as AZURE_SQL_USERNAME / AZURE_SQL_PASSWORD
 
+# One Azure SQL server per Azure region. The key is the region name exactly as
+# Azure shows it; pick one at run time with  --region "<name>"  (case, spaces
+# and hyphens are ignored, so "east us" / "East-US" / "eastus" all work).
+# Replace each <...> placeholder with that region's real server FQDN
+# (Azure portal -> SQL server -> Overview -> "Server name").
+# gcp_location = GCP region used for that Azure region's GCS bucket + BigQuery
+# datasets (closest match; change if you prefer another).
+# Per region, GCP is separated automatically:
+#   bucket        <gcp.gcs_bucket>-<region>      e.g. migration-landing-bucket-east-us
+#   control ds    <gcp.bq_dataset>_<region>      e.g. migrated_data_east_us   (checkpoint/audit/logs/report)
+#   data datasets <region>_<schema>              e.g. east_us_dbo, east_us_sales
+# Required per region: host, gcp_location.
+# Optional per region: database, storage_account, gcs_bucket, bq_dataset (override the names above).
+# Credentials: shared AZURE_SQL_USERNAME/PASSWORD in .env, or AZURE_SQL_USERNAME_<REGION>/..._PASSWORD_<REGION>
+# (e.g. _EAST_US) when a region's server has its own login — see .env.example.
+regions:
+  Central US:
+    host: central-us.database.windows.net
+    database: sales1_poc
+    gcp_location: us-central1
+  Central India:
+    host: sql-to-gcp-poc-server2.database.windows.net
+    database: sales_poc
+    gcp_location: asia-south1      # Mumbai, the closest GCP region to Central India
+ 
 azure:
   storage_account: storageaccount8791511009
   container: migration-staging
@@ -35,25 +60,20 @@ azure:
     max_concurrency: 4              # blocks uploaded in parallel
     max_retries: 3
     retry_backoff_seconds: 5        # doubles each retry: 5s, 10s, 20s
-    
+
 gcp:
   project_id: sts-accelerator
-  region: asia-south1
   gcs_bucket: migration-landing-bucket
-  # Base dataset name. Migrated DATA tables are NOT put directly in
+  # Control dataset name. Migrated DATA tables are NOT put directly in
   # this dataset — each source SQL Server schema gets its own dataset
-  # derived from this base name, e.g. schema `dbo` -> `migrated_data_dbo`,
-  # schema `sales` -> `migrated_data_sales` (see
+  # named after the schema (`dbo` -> `dbo`, `sales` -> `sales`; with a region,
+  # `east_us_dbo`, `east_us_sales` — see
   # src/bigquery/dataset_naming.py), so the source schema structure
   # stays visibly separated in BigQuery instead of being flattened.
-  # This base name IS used as-is for the shared operational/control
+  # This name IS used as-is for the shared operational/control
   # tables (migration_pipeline_logs, migration_checkpoint,
   # migration_audit, migration_report), which are not schema-scoped.
   bq_dataset: migrated_data
-
-transfer:
-  mode: public_internet            # public_internet | private_network (Cross-Cloud Interconnect)
-  service_directory_selflink: null # only used if mode: private_network
 
 extraction:
   # Every table is paged by its primary key (keyset pagination), NOT by
@@ -61,7 +81,7 @@ extraction:
   # Parquet file (<table>_part0000.parquet, _part0001.parquet, ...) and
   # loaded/merged independently, so a failure partway through a table
   # only has to redo the pages after the last committed checkpoint.
-  batch_size: 1000
+  batch_size: 25000
   # OPTIONAL. Date-based cutoff: only rows whose `updatedAt` column is
   # on/before this date (updatedAt <= cutoff_date) are pulled from the
   # source. Applied to EVERY table this pipeline migrates, regardless
@@ -73,6 +93,7 @@ extraction:
   # Accepts "YYYY-MM-DD" or a full ISO timestamp. Leave null (or delete
   # this line) to disable the filter and extract every row.
   cutoff_date: 2026-09-22
+
 metadata:
   # Table names for the operational tables this pipeline maintains in
   # BigQuery itself (created automatically if they don't exist — see

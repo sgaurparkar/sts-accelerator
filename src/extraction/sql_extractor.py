@@ -22,17 +22,13 @@ the cutoff are migrated. Every source table is expected to have an
 in the same WHERE clause, so it doesn't disturb resumability — a
 resumed run still only re-reads rows after its last committed key, now
 additionally restricted to the configured cutoff date.
-
-SQLite support has been removed — this only talks to real SQL Server.
 """
-import os
+import datetime
+
+import pandas as pd
+from sqlalchemy import text
 
 from src.discovery.shadow_table_naming import shadow_table_name
-import pandas as pd
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
-
-load_dotenv()
 
 
 class SqlExtractor:
@@ -47,16 +43,8 @@ class SqlExtractor:
 
     def _get_engine(self):
         if self._engine is None:
-            user = os.environ["AZURE_SQL_USERNAME"]
-            pwd = os.environ["AZURE_SQL_PASSWORD"]
-            host = self.source_cfg["host"]
-            database = self.source_cfg["database"]
-            driver = self.source_cfg.get("driver", "ODBC Driver 18 for SQL Server")
-            conn_str = (
-                f"mssql+pyodbc://{user}:{pwd}@{host}/{database}"
-                f"?driver={driver.replace(' ', '+')}"
-            )
-            self._engine = create_engine(conn_str, pool_pre_ping=True, fast_executemany=True)
+            from src.config.connection import build_sql_engine
+            self._engine = build_sql_engine(self.source_cfg, fast_executemany=True)
         return self._engine
 
     @staticmethod
@@ -76,12 +64,36 @@ class SqlExtractor:
         return "WHERE " + " OR ".join(clauses)
 
     @staticmethod
+    def _cutoff_condition(cutoff_date) -> tuple[str, object]:
+        """SQL condition + bound value for `updatedAt <= cutoff_date`.
+
+        A date-only cutoff (YAML turns `2026-09-22` into a date object; a
+        "YYYY-MM-DD" string is the same thing) means "through the END of that
+        day". Comparing `updatedAt <= '2026-09-22'` would silently drop every row
+        updated after 00:00 on the cutoff day, so a date-only cutoff becomes
+        `updatedAt < <next day>` instead. A full timestamp is used as given.
+        """
+        if isinstance(cutoff_date, str):
+            text_value = cutoff_date.strip()
+            try:
+                cutoff_date = (datetime.date.fromisoformat(text_value) if len(text_value) == 10
+                               else datetime.datetime.fromisoformat(text_value))
+            except ValueError:
+                return "[updatedAt] <= :cutoff_date", text_value
+        if isinstance(cutoff_date, datetime.datetime):
+            return "[updatedAt] <= :cutoff_date", cutoff_date
+        if isinstance(cutoff_date, datetime.date):
+            next_day = datetime.datetime.combine(cutoff_date, datetime.time.min) + datetime.timedelta(days=1)
+            return "[updatedAt] < :cutoff_date", next_day
+        return "[updatedAt] <= :cutoff_date", cutoff_date
+
+    @staticmethod
     def _build_where(pk_cols: list[str], last_values: dict | None, cutoff_date: str | None) -> tuple[str, dict]:
         """Combines the keyset (seek) condition with the optional
         date-based incremental filter into a single WHERE clause, so both
         get pushed down to SQL Server together. When `cutoff_date` is
         set, rows are additionally required to have `updatedAt` on/before
-        it (`updatedAt <= cutoff_date`) — every source table is expected
+        it (a date-only cutoff includes that whole day — see _cutoff_condition) — every source table is expected
         to have an `updatedAt` column."""
         keyset_where = SqlExtractor._keyset_where(pk_cols, last_values)
         params = {}
@@ -95,9 +107,10 @@ class SqlExtractor:
                 )
 
         if cutoff_date:
-            conditions.append("[updatedAt] <= :cutoff_date")
-            params["cutoff_date"] = cutoff_date
-    
+            condition, value = SqlExtractor._cutoff_condition(cutoff_date)
+            conditions.append(condition)
+            params["cutoff_date"] = value
+
         if not conditions:
             return "", {}
         return "WHERE " + " AND ".join(f"({c})" for c in conditions), params

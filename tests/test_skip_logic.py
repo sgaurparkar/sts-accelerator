@@ -1,7 +1,6 @@
 """Verifies a COMPLETED load_mode=full table is skipped (and when it is NOT).
 Cloud clients are stubbed, so this runs offline:  python -m pytest tests/test_skip_logic.py"""
 import sys
-import types
 from unittest import mock
 
 # Stub every module that needs cloud SDKs / drivers before importing the pipeline.

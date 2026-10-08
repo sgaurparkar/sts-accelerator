@@ -41,10 +41,11 @@ class BqMerge:
         self.project_id = config["gcp"]["project_id"]
         self.base_dataset = config["gcp"]["bq_dataset"]
         self.gcs_bucket = config["gcp"]["gcs_bucket"]
-        self.client = bigquery.Client(project=self.project_id)
+        self.region_slug = config.get("source", {}).get("region_slug")
+        self.client = bigquery.Client(project=self.project_id, location=config["gcp"].get("location"))
 
     def _dataset(self, table_cfg: dict) -> str:
-        return dataset_for_schema(self.base_dataset, table_cfg["schema"])
+        return dataset_for_schema(self.base_dataset, table_cfg["schema"], self.region_slug)
 
     def load_batch_to_staging(self, table_cfg: dict, batch_index: int) -> str:
         """Loads exactly this batch's Parquet file from GCS into the

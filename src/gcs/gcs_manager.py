@@ -12,13 +12,62 @@ Requires: google-cloud-storage
 """
 import time
 
+from google.api_core import exceptions as gexc
 from google.cloud import storage
+
+_ENSURED_BUCKETS: set[str] = set()   # buckets already verified in this process
 
 
 class GcsManager:
     def __init__(self, config: dict):
         self.bucket_name = config["gcp"]["gcs_bucket"]
+        self.location = config["gcp"].get("location")
+        self.region_mode = bool(config.get("source", {}).get("region_slug"))
         self.client = storage.Client(project=config["gcp"]["project_id"])
+
+    def ensure_bucket(self) -> None:
+        """Region mode only: makes sure this region's landing bucket exists in the
+        region's GCP location, creating it if needed.
+
+          * existing bucket in the SAME location  -> left untouched
+          * existing bucket in ANOTHER location   -> RuntimeError (BigQuery can't load
+            from a bucket in a different location, and the failure it gives is confusing)
+          * name owned by another project / no permission -> RuntimeError with the reason
+          * two runs racing to create it          -> the loser just re-reads it
+
+        New bucket => grant the Storage Transfer Service account write access once
+        (see README "Choosing the source region"). Checked once per process.
+        """
+        if not self.region_mode or self.bucket_name in _ENSURED_BUCKETS:
+            return
+        bucket = self._lookup()
+        if bucket is None:
+            print(f"[gcs_manager] Creating bucket gs://{self.bucket_name} in {self.location} ...")
+            try:
+                bucket = self.client.create_bucket(self.client.bucket(self.bucket_name),
+                                                   location=self.location)
+            except gexc.Conflict:                      # created by a parallel run, or name taken
+                bucket = self._lookup()
+                if bucket is None:
+                    raise RuntimeError(f"Bucket name gs://{self.bucket_name} is not available. Set "
+                                       "regions.<name>.gcs_bucket (or gcp.gcs_bucket) to a unique name.")
+            except gexc.Forbidden as e:
+                raise RuntimeError(f"No permission to create gs://{self.bucket_name} "
+                                   "(needs storage.buckets.create on the project).") from e
+        existing = (getattr(bucket, "location", None) or "").lower()
+        if self.location and existing and existing != self.location.lower():
+            raise RuntimeError(
+                f"gs://{self.bucket_name} already exists in {existing}, but this region is configured "
+                f"for {self.location}. BigQuery needs the bucket and datasets in the same location — "
+                "use a different bucket name (regions.<name>.gcs_bucket) or fix gcp_location.")
+        _ENSURED_BUCKETS.add(self.bucket_name)
+
+    def _lookup(self):
+        try:
+            return self.client.lookup_bucket(self.bucket_name)      # None when it doesn't exist
+        except gexc.Forbidden as e:
+            raise RuntimeError(f"Cannot access gs://{self.bucket_name}: the name may belong to another "
+                               "project, or this account lacks storage.buckets.get.") from e
 
     def overwrite_batch_file(self, local_path: str, table_name: str, schema_name: str,
                               batch_index: int) -> str:
@@ -40,19 +89,6 @@ class GcsManager:
         bucket.blob(blob_name).upload_from_filename(local_path)
         print(f"[gcs_manager] Overwrite complete: gs://{self.bucket_name}/{blob_name}")
         return blob_name
-
-    def list_files(self, table_name: str, schema_name: str) -> list[str]:
-        prefix = f"parquet/{schema_name}/{table_name}/"
-        blobs = self.client.list_blobs(self.bucket_name, prefix=prefix)
-        return [b.name for b in blobs]
-
-    def files_exist(self, table_name: str, schema_name: str) -> bool:
-        """Kept for backwards compatibility. NOTE: this only checks that
-        *some* file exists for the table — once earlier batches have
-        landed, this is always True and can't catch a specific batch's
-        file failing to transfer. Use batch_file_exists() instead for
-        anything that's about to load one specific batch."""
-        return len(self.list_files(table_name, schema_name)) > 0
 
     def batch_file_exists(self, table_name: str, schema_name: str, batch_index: int,
                            retries: int = 3, retry_delay_seconds: int = 5) -> bool:

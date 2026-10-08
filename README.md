@@ -57,6 +57,71 @@ their primary keys is hand-typed anywhere in this repo:
   `src/bigquery/bq_control_tables.py`). Target/staging tables are plain
   — no partitioning, no clustering.
 
+## Choosing the source region
+
+The source SQL servers are one-per-Azure-region and listed under `regions:` in
+`config/settings.yaml` (fill in each server's `<name>.database.windows.net`).
+Pass the region exactly as Azure shows it — quotes are optional, and case,
+spaces and hyphens are ignored:
+
+```bash
+python3 main.py --list-regions
+python3 main.py --all --region North Central US
+python3 main.py --table dbo.customers --region "Brazil South"
+python3 main.py --list --region west us 2
+python3 main.py --all --region East US gcs        # stage word may follow the region
+python3 main.py --all --region all                # every region that has a host set
+python3 main.py --report --region Southeast Asia
+```
+
+`--region` is required with `--table`, `--all`, `--list` and `--report`. With
+`--region all`, regions run one after another; a failing region doesn't stop the
+others, and the exit code is 1 if any failed. Regions whose host is still a
+`<placeholder>` are skipped (with a warning) under `all`, and rejected if named.
+
+**Airflow:** trigger `migration_full_load` with conf `{"region": "East US"}` (or
+`"all"`), optionally plus `"force": true`. `migration_incremental` runs **every**
+configured region on its schedule unless you trigger it with a region (or set the
+`SOURCE_REGION` env var). A bad region fails the task immediately, without retries.
+
+### Region-wise layout in GCP
+
+Each Azure region lands in its own, separate resources, created in the GCP
+location set by `regions.<name>.gcp_location` (required):
+
+| What | Name for `--region "East US"` |
+|---|---|
+| GCS landing bucket (auto-created) | `migration-landing-bucket-east-us` |
+| Data datasets | `east_us_dbo`, `east_us_sales`, ... |
+| Control tables (checkpoint / audit / logs / report) | dataset `migrated_data_east_us` |
+| Azure staging path | `<container>/east_us/<schema>/<table>/` |
+| Local Parquet | `data/parquet/east_us/<schema>/` |
+| Plan snapshot | `config/tables_east_us.yaml` |
+
+Names can be overridden per region with `gcs_bucket` / `bq_dataset`. Existing
+bucket/datasets in a *different* location than `gcp_location` are rejected up
+front (BigQuery can't load across locations). The first run for a region creates
+its bucket (or create them with `terraform/gcp/regional.tf` — it also grants the
+permission below; use one approach or the other, see the comments in that file); give the Storage Transfer Service account
+(`project-<PROJECT_NUMBER>@storage-transfer-service.iam.gserviceaccount.com`)
+`Storage Legacy Bucket Writer` + `Storage Object Viewer` on it once, unless your
+project already grants that project-wide.
+
+### Per-region credentials
+
+Servers in different regions often have different logins. For each secret, a
+region-specific variable wins over the shared one (see `.env.example`):
+
+```
+AZURE_SQL_USERNAME_EAST_US / AZURE_SQL_PASSWORD_EAST_US        -> else AZURE_SQL_USERNAME / AZURE_SQL_PASSWORD
+AZURE_STORAGE_CONNECTION_STRING_EAST_US, AZURE_SAS_TOKEN_EAST_US -> else the shared ones
+```
+
+### Region-scoped overrides
+
+An entry in `config/tables_override.yaml` may add `region: East US` so it applies
+to that region only (a region-specific entry beats a general one).
+
 ## How the pieces fit together
 
 ```
@@ -83,8 +148,8 @@ src/gcs (gcs_manager)                                <- verifies landing, cleans
 src/bigquery (bq_control_tables, bq_merge)           <- ensures tables exist, loads to staging, MERGEs into target
         │
         ▼
-src/metadata (metadata_manager, checkpoint_manager,  <- logs every stage event (GCS + BigQuery table),
-              run_tracker)                              commits a resume checkpoint after every batch
+src/metadata (metadata_manager, checkpoint_manager)  <- logs every stage event (GCS + BigQuery table),
+                                                         commits a resume checkpoint after every batch
         │
         ▼
 src/reporting (report_generator)                     <- rolls up migration_audit into one row per

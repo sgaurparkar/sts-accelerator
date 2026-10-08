@@ -14,9 +14,9 @@ its own segment throughout the pipeline instead of being flattened.
 Requires: google-cloud-storage-transfer
   pip install google-cloud-storage-transfer
 """
-import os
-import datetime
 from google.cloud import storage_transfer_v1 as storagetransfer
+
+from src.config.connection import regional_env
 
 
 class StsClient:
@@ -25,14 +25,18 @@ class StsClient:
         self.gcs_bucket = config["gcp"]["gcs_bucket"]
         self.azure_account = config["azure"]["storage_account"]
         self.azure_container = config["azure"]["container"]
+        self.region_slug = config.get("source", {}).get("region_slug")
         self.client = storagetransfer.StorageTransferServiceClient()
 
     def create_job_for_table(self, table_name: str, schema_name: str) -> str:
-        sas_token = os.environ.get("AZURE_SAS_TOKEN")
+        sas_token = regional_env("AZURE_SAS_TOKEN", self.region_slug)
         if not sas_token:
-            raise RuntimeError("AZURE_SAS_TOKEN not set — check your .env file")
+            hint = f" (or AZURE_SAS_TOKEN_{self.region_slug.upper()} for this region)" if self.region_slug else ""
+            raise RuntimeError(f"AZURE_SAS_TOKEN{hint} not set — check your .env file")
 
         azure_path = f"{schema_name}/{table_name}/"
+        if self.region_slug:
+            azure_path = f"{self.region_slug}/{azure_path}"
         gcs_path = f"parquet/{schema_name}/{table_name}/"
 
         print(f"[sts_client] Creating transfer job for {schema_name}.{table_name}: "

@@ -1,10 +1,10 @@
 pandas
 pyarrow
 pyyaml
-openpyxl
 python-dotenv
 
 # Google Cloud
+google-api-core
 google-cloud-bigquery
 google-cloud-storage
 google-cloud-storage-transfer
@@ -16,7 +16,6 @@ azure-storage-blob
 # apache-airflow-providers-google
 # apache-airflow-providers-microsoft-azure
 
-# Real SQL Server connectivity (source.type: mssql is the only supported
-# source now — the SQLite demo path has been removed entirely)
+# SQL Server connectivity (source.type: mssql is the only supported source)
 sqlalchemy
 pyodbc

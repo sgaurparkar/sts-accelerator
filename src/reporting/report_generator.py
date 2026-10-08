@@ -7,7 +7,7 @@ per stage event) and migration_audit (one row per table PER RUN).
 This module rolls those up into one row per table showing its latest
 run's outcome plus its actual current row count in BigQuery, and:
 
-  1. Writes it as a real BigQuery table (CREATE OR REPLACE — a fresh
+  1. Writes it as a real BigQuery table (replaced wholesale — a fresh
      full snapshot every time this runs, not an append), so it can be
      queried with SQL like any other table.
   2. Also writes a local JSON snapshot under logs/reports/, dated, so
@@ -41,10 +41,11 @@ class ReportGenerator:
         self.audit_table = metadata_cfg.get("audit_table", "migration_audit")
         self.report_table = metadata_cfg.get("report_table", "migration_report")
         self.report_output_path = logging_config.get("report_output_path", "logs/reports")
-        self.client = bigquery.Client(project=self.project_id)
+        self.region_slug = settings.get("source", {}).get("region_slug")
+        self.client = bigquery.Client(project=self.project_id, location=settings["gcp"].get("location"))
 
     def _latest_audit_per_table(self) -> list[dict]:
-        """One row per table_name: its most recent audit entry."""
+        """One row per (schema_name, table_name): its most recent audit entry."""
         query = f"""
             SELECT table_name, schema_name, load_mode, outcome,
                    batches_processed, rows_processed, started_at,
@@ -52,7 +53,7 @@ class ReportGenerator:
             FROM (
                 SELECT *,
                        ROW_NUMBER() OVER (
-                           PARTITION BY table_name ORDER BY finished_at DESC
+                           PARTITION BY schema_name, table_name ORDER BY finished_at DESC
                        ) AS rn
                 FROM `{self.project_id}.{self.base_dataset}.{self.audit_table}`
             )
@@ -65,7 +66,7 @@ class ReportGenerator:
         (not the count from any one run — the true total after every
         insert-only merge to date). Looked up in the dataset scoped to
         the table's own source schema, not the base dataset."""
-        dataset = dataset_for_schema(self.base_dataset, schema_name) if schema_name else self.base_dataset
+        dataset = dataset_for_schema(self.base_dataset, schema_name, self.region_slug) if schema_name else self.base_dataset
         try:
             query = f"SELECT COUNT(*) AS cnt FROM `{self.project_id}.{dataset}.{table_name}`"
             rows = list(self.client.query(query).result())
@@ -85,7 +86,7 @@ class ReportGenerator:
         for audit in audits:
             table_name = audit["table_name"]
             schema_name = audit["schema_name"]
-            dataset = dataset_for_schema(self.base_dataset, schema_name) if schema_name else self.base_dataset
+            dataset = dataset_for_schema(self.base_dataset, schema_name, self.region_slug) if schema_name else self.base_dataset
             print(f"[report_generator] Counting live rows for {schema_name}.{table_name} "
                   f"in {dataset} ...")
             live_count = self._live_row_count(table_name, schema_name)
@@ -100,7 +101,7 @@ class ReportGenerator:
                 "last_run_finished_at": _iso(audit["finished_at"]),
                 "last_error_message": audit["error_message"],
                 "total_rows_in_bigquery": live_count,
-                "report_generated_at": datetime.datetime.utcnow().isoformat(),
+                "report_generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             })
         return rows
 
@@ -119,17 +120,21 @@ class ReportGenerator:
             bigquery.SchemaField("total_rows_in_bigquery", "INT64"),
             bigquery.SchemaField("report_generated_at", "TIMESTAMP"),
         ]
-        # Full snapshot every time — delete-and-recreate rather than append,
-        # since this represents "current status", not a history log.
+        # Full snapshot every time — replace rather than append, since this
+        # represents "current status", not a history log.
         print(f"[report_generator] Writing report table {table_ref} "
               f"({len(rows)} row(s)) ...")
-        self.client.delete_table(table_ref, not_found_ok=True)
-        table = bigquery.Table(table_ref, schema=schema)
-        self.client.create_table(table)
+        # A single WRITE_TRUNCATE load job replaces the table atomically. (Streaming
+        # inserts straight after a delete+create can 404 while the new table propagates.)
         if rows:
-            errors = self.client.insert_rows_json(table_ref, rows)
-            if errors:
-                print(f"[report_generator] WARNING: report insert failed: {errors}")
+            job_config = bigquery.LoadJobConfig(
+                schema=schema,
+                write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+            )
+            self.client.load_table_from_json(rows, table_ref, job_config=job_config).result()
+        else:
+            self.client.delete_table(table_ref, not_found_ok=True)
+            self.client.create_table(bigquery.Table(table_ref, schema=schema))
         print(f"[report_generator] Report table ready: {table_ref}")
         return table_ref
 

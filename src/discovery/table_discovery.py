@@ -14,12 +14,10 @@ SQL Server, so `--all` picks up a brand-new schema with zero config
 change. Set source.schemas to an explicit list to scope the pipeline
 to only those schemas instead.
 
-SQLite support has been removed entirely — this project only talks to
-real SQL Server (Azure SQL / on-prem) via SQLAlchemy + pyodbc.
+This project only talks to real SQL Server (Azure SQL / on-prem) via
+SQLAlchemy + pyodbc.
 """
-import os
-
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from src.discovery.shadow_table_naming import is_shadow_table
@@ -47,30 +45,10 @@ class TableDiscovery:
             )
         self._engine: Engine | None = None
 
-    def _get_engine(self) -> Engine:
+    def _get_engine(self):
         if self._engine is None:
-            try:
-                user = os.environ["AZURE_SQL_USERNAME"]
-                pwd = os.environ["AZURE_SQL_PASSWORD"]
-            except KeyError as e:
-                raise RuntimeError(
-                    f"Missing required environment variable {e}. Set "
-                    "AZURE_SQL_USERNAME and AZURE_SQL_PASSWORD in .env "
-                    "(see .env.example)."
-                ) from e
-            host = self.source_cfg.get("host")
-            database = self.source_cfg.get("database")
-            if not host or not database:
-                raise RuntimeError(
-                    "config/settings.yaml is missing source.host or "
-                    "source.database."
-                )
-            driver = self.source_cfg.get("driver", "ODBC Driver 18 for SQL Server")
-            conn_str = (
-                f"mssql+pyodbc://{user}:{pwd}@{host}/{database}"
-                f"?driver={driver.replace(' ', '+')}"
-            )
-            self._engine = create_engine(conn_str, pool_pre_ping=True, fast_executemany=True)
+            from src.config.connection import build_sql_engine
+            self._engine = build_sql_engine(self.source_cfg, fast_executemany=True)
         return self._engine
 
     def list_schemas(self) -> list[str]:
@@ -131,21 +109,12 @@ class TableDiscovery:
         there, instead of silently returning zero tables."""
         return schema in self.list_schemas()
 
-    def list_all_tables(self) -> list[dict]:
-        """[{'schema': 'dbo', 'name': 'orders'}, ...] across every configured
-        (or auto-discovered) schema."""
-        out = []
-        for schema in self.list_schemas():
-            for name in self.list_tables(schema):
-                out.append({"schema": schema, "name": name})
-        return out
-
     def get_primary_key(self, table_name: str, schema: str) -> list[str]:
         """Ordered primary-key column(s) for a table, straight from SQL Server.
 
-        Returns [] if the table has no primary key — in that case the
-        pipeline falls back to a single-batch (non-resumable) extract for
-        that table and logs a warning, since keyset pagination needs a key.
+        Returns [] if the table has no primary key — table_planner.py then
+        assigns it a synthetic, materialized key (source_row_id) so it can
+        be paged, resumed and merged like any other table.
         """
         query = text(
             """
