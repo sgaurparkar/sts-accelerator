@@ -2,12 +2,9 @@ import datetime
 import json
 import os
 import uuid
-from google.cloud import storage as gcs_storage
 
-try:
-    from google.cloud import bigquery
-except ImportError:
-    bigquery = None
+from google.cloud import bigquery
+from google.cloud import storage as gcs_storage
 
 
 class MetadataManager:
@@ -26,8 +23,9 @@ class MetadataManager:
         self.raw_log_path = raw_log_path
         self._is_gcs = self.raw_log_path.startswith("gcs://")
 
-        self.write_to_bq = logging_config.get("write_logs_to_bigquery", True) and bigquery is not None
+        self.write_to_bq = logging_config.get("write_logs_to_bigquery", True)
         self._bq_client = None
+        self._gcs_client = None
         self._log_table_ref = None
         if self.write_to_bq:
             project_id = self.gcp_config.get("project_id")
@@ -36,14 +34,10 @@ class MetadataManager:
                          or logging_config.get("bq_log_table")
                          or "migration_pipeline_logs")
             if project_id and dataset:
-                self._bq_client = bigquery.Client(project=project_id)
+                self._bq_client = bigquery.Client(project=project_id, location=self.gcp_config.get("location"))
                 self._log_table_ref = f"{project_id}.{dataset}.{log_table}"
             else:
                 self.write_to_bq = False
-
-    def start_run(self) -> str:
-        """Call once per DAG run. Returns a run_id shared by every stage."""
-        return str(uuid.uuid4())
 
     def log_stage_start(self, run_id: str, table_name: str, stage: str, schema_name: str = None) -> None:
         self._write_event({
@@ -55,7 +49,7 @@ class MetadataManager:
             "batch_index": None,
             "rows_processed": None,
             "bytes_processed": None,
-            "started_at": datetime.datetime.utcnow().isoformat(),
+            "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "finished_at": None,
             "error_message": None,
             "extra": {},
@@ -76,7 +70,7 @@ class MetadataManager:
             "rows_processed": rows_processed,
             "bytes_processed": bytes_processed,
             "started_at": None,
-            "finished_at": datetime.datetime.utcnow().isoformat(),
+            "finished_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "error_message": error_message,
             "extra": extra or {},
         })
@@ -100,7 +94,9 @@ class MetadataManager:
 
     def _write_gcs_event(self, run_id: str, event: dict) -> None:
         bucket_name, prefix = self.raw_log_path[len("gcs://"):].split("/", 1)
-        client = gcs_storage.Client()
+        if self._gcs_client is None:
+            self._gcs_client = gcs_storage.Client()
+        client = self._gcs_client
         blob_name = f"{prefix.rstrip('/')}/{run_id}/{uuid.uuid4()}.json"
         client.bucket(bucket_name).blob(blob_name).upload_from_string(
             json.dumps(event), content_type="application/json"

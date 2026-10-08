@@ -1,13 +1,3 @@
-.env
-.env
-venv/
-__pycache__/
-*.pyc
-venv/
-.env
-__pycache__/
-*.pyc
-
 # Virtual env
 venv/
 
@@ -26,23 +16,3 @@ logs/
 
 # Zip files
 *.zip
-
-# Virtual env
-venv/
-
-# Environment files
-.env
-
-# Python cache
-__pycache__/
-*.pyc
-
-# Generated data
-data/parquet/
-
-# Logs
-logs/
-
-# Zip files
-*.zip
-.env

@@ -1,5 +1,4 @@
 import argparse
-import sys
 import uuid
 import yaml
 
@@ -9,6 +8,12 @@ from src.planner.table_planner import (
     TableNotFoundError,
     AmbiguousTableError,
     SchemaNotFoundError,
+)
+from src.config.region_resolver import (
+    RegionError,
+    available_regions,
+    regions_to_run,
+    resolve_region,
 )
 from src.pipeline.table_pipeline import run_table
 from src.reporting.report_generator import ReportGenerator
@@ -56,7 +61,17 @@ def split_schema_table(raw: str, cli_schema: str | None) -> tuple[str, str | Non
     return raw, cli_schema
 
 
-def main():
+def announce_region(settings) -> None:
+    src = settings["source"]
+    if not src.get("region"):
+        return
+    g = settings["gcp"]
+    print(f"Region: {src['region']}  ->  {src['host']}")
+    print(f"GCP:    bucket=gs://{g['gcs_bucket']} | control dataset={g['bq_dataset']} | "
+          f"data datasets={src['region_slug']}_<schema> | location={g.get('location')}")
+
+
+def build_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--table", help="Table name to migrate — bare ('customers') or "
                                          "schema-qualified ('dbo.customers'); discovered "
@@ -65,6 +80,13 @@ def main():
                                           "name that exists in more than one schema) or to "
                                           "scope --all / --list to a single schema. Omit to "
                                           "span every discovered schema.")
+    parser.add_argument("--region", nargs="+", metavar="NAME",
+                         help="Azure region of the source SQL server, exactly as Azure shows it — "
+                              "quotes optional: --region North Central US. Use 'all' for every "
+                              "configured region. Required with --table / --all / --list / --report "
+                              "when `regions:` is configured in config/settings.yaml.")
+    parser.add_argument("--list-regions", action="store_true",
+                         help="Show the configured regions and exit")
     parser.add_argument("--all", action="store_true", help="Migrate every dynamically discovered "
                                                              "table (every schema, unless --schema is given)")
     parser.add_argument("--list", action="store_true", help="List every dynamically discovered "
@@ -79,19 +101,12 @@ def main():
                               "has landed in GCS (extract -> Azure -> STS transfer -> GCS), "
                               "'bq' (default) continues on to the BigQuery staging load + "
                               "merge, same as omitting this argument.")
-    args = parser.parse_args()
+    return parser
 
-    modes_selected = sum(bool(x) for x in (args.table, args.all, args.list, args.report))
-    if modes_selected == 0:
-        raise SystemExit("Provide --table <name>, --all, --list, or --report")
-    if modes_selected > 1:
-        raise SystemExit("Use only one of --table, --all, --list, --report at a time.")
-    if args.schema and not (args.table or args.all or args.list):
-        raise SystemExit("--schema only applies together with --table, --all, or --list.")
 
-    settings = load_yaml("config/settings.yaml")
-    logging_config = load_yaml("config/logging.yaml")
-
+def execute(args, settings, logging_config) -> None:
+    """Runs the selected mode against ONE (already region-resolved) settings dict.
+    Failures end in SystemExit so a multi-region run can carry on with the next region."""
     try:
         if args.report:
             result = ReportGenerator(settings, logging_config).generate()
@@ -129,16 +144,16 @@ def main():
                 # each table gets its own run_id (like migrate_table.expand() does
                 # per Airflow task instance) so checkpoints/audit rows don't collide
                 run_id = f"{batch_run_id}:{table_cfg['schema']}.{table_cfg['name']}"
+                label = f"{table_cfg['schema']}.{table_cfg['name']}"
                 try:
                     result = run_one(settings, logging_config, table_cfg, run_id,
                                       stage=args.stage, force=args.force)
-                    label = f"{table_cfg['schema']}.{table_cfg['name']}"
                     (skipped if result.get("status") == "SKIPPED" else succeeded).append(label)
                 except Exception as exc:
                     # don't let one table's failure stop the rest of the batch —
                     # same all_done/resume-later behavior as the Airflow DAG
-                    print(f"FAILED | Table={table_cfg['schema']}.{table_cfg['name']} | Reason={exc}")
-                    failed.append(f"{table_cfg['schema']}.{table_cfg['name']}")
+                    print(f"FAILED | Table={label} | Reason={exc}")
+                    failed.append(label)
 
             print(f"\n{'=' * 70}")
             print(f"Batch complete: {len(succeeded)} succeeded, {len(skipped)} skipped "
@@ -150,13 +165,16 @@ def main():
             if failed:
                 print(f"  Failed:    {', '.join(failed)}")
 
-            report = ReportGenerator(settings, logging_config).generate()
-            print(f"Report generated: {report['tables_reported']} tables")
-            print(f"  BigQuery table:  {report['bigquery_table']}")
-            print(f"  Local snapshot:  {report['local_snapshot']}")
+            try:
+                report = ReportGenerator(settings, logging_config).generate()
+                print(f"Report generated: {report['tables_reported']} tables")
+                print(f"  BigQuery table:  {report['bigquery_table']}")
+                print(f"  Local snapshot:  {report['local_snapshot']}")
+            except Exception as exc:       # a report problem must not hide the migration result
+                print(f"WARNING: report generation failed: {exc}")
 
             if failed:
-                raise SystemExit(1)
+                raise SystemExit(f"{len(failed)} table(s) failed: {', '.join(failed)}")
             return
 
         # --table
@@ -172,6 +190,86 @@ def main():
         # src/discovery — fail with a clear one-line message instead of
         # a raw traceback.
         raise SystemExit(f"Error: {e}")
+
+
+def main():
+    parser = build_parser()
+    args = parser.parse_args()
+
+    # `--region North Central US gcs` -> the stage word is swallowed by --region; give it back.
+    region_words = list(args.region or [])
+    if region_words and region_words[-1].lower() in ("gcs", "bq"):
+        stage_word = region_words.pop().lower()
+        if args.stage != "bq" and args.stage != stage_word:
+            raise SystemExit(f"Conflicting stage arguments: '{args.stage}' and '{stage_word}'.")
+        args.stage = stage_word
+    args.region = " ".join(region_words).strip() or None
+
+    modes_selected = sum(bool(x) for x in (args.table, args.all, args.list, args.report, args.list_regions))
+    if modes_selected == 0:
+        raise SystemExit("Provide --table <n>, --all, --list, --report, or --list-regions")
+    if modes_selected > 1:
+        raise SystemExit("Use only one of --table, --all, --list, --report, --list-regions at a time.")
+    if args.schema and not (args.table or args.all or args.list):
+        raise SystemExit("--schema only applies together with --table, --all, or --list.")
+    if args.table is not None and not str(args.table).strip():
+        raise SystemExit("--table needs a table name.")
+
+    settings = load_yaml("config/settings.yaml")
+    if not isinstance(settings, dict):
+        raise SystemExit("config/settings.yaml is empty or not a mapping.")
+
+    if args.list_regions:
+        try:
+            names = available_regions(settings)
+        except RegionError as e:
+            raise SystemExit(f"Error: {e}")
+        if not names:
+            print("No `regions:` configured in config/settings.yaml.")
+            return
+        print("Configured regions (use with --region):")
+        for r in names:
+            e = settings["regions"][r] if isinstance(settings["regions"][r], dict) else {}
+            host = str(e.get("host") or "")
+            status = "host NOT set" if (not host or "<" in host) else host
+            print(f"  {r:22s} gcp_location={e.get('gcp_location') or '(missing)':20s} {status}")
+        return
+
+    logging_config = load_yaml("config/logging.yaml")
+
+    try:
+        targets = regions_to_run(settings, args.region)
+    except RegionError as e:
+        raise SystemExit(f"Error: {e}")
+
+    multi = len(targets) > 1
+    failures = []
+    for name in targets:
+        if multi:
+            print(f"\n{'#' * 70}\n# Region: {name}\n{'#' * 70}")
+        try:
+            resolved = resolve_region(settings, name)
+            announce_region(resolved)
+            execute(args, resolved, logging_config)
+        except RegionError as e:
+            err = SystemExit(f"Error: {e}")
+            if not multi:
+                raise err
+            print(err)
+            failures.append(name)
+        except SystemExit as e:
+            if e.code in (0, None):
+                continue
+            if not multi:
+                raise
+            print(f"[{name}] {e.code}")
+            failures.append(name)
+
+    if multi:
+        print(f"\n{'=' * 70}\nAll-regions run complete: {len(targets) - len(failures)} OK, "
+              f"{len(failures)} failed" + (f" ({', '.join(failures)})" if failures else ""))
+        if failures:
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":

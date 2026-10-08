@@ -1,0 +1,10 @@
+_generated_by: "src/planner/table_planner.py \u2014 rewritten on every run, do not\
+  \ hand-edit"
+region: Central US
+tables:
+- schema: dbo
+  name: test11
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full

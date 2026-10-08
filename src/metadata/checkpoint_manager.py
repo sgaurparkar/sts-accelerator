@@ -33,7 +33,7 @@ class CheckpointManager:
         self.project_id = config["gcp"]["project_id"]
         self.dataset = config["gcp"]["bq_dataset"]
         self.table_ref = f"{self.project_id}.{self.dataset}.{checkpoint_table}"
-        self.client = bigquery.Client(project=self.project_id)
+        self.client = bigquery.Client(project=self.project_id, location=config["gcp"].get("location"))
 
     def get_checkpoint(self, table_name: str, schema_name: str | None = None) -> dict | None:
         """Latest checkpoint row for a table. Pass schema_name so that
@@ -80,7 +80,8 @@ class CheckpointManager:
         if not checkpoint or checkpoint["status"] == "COMPLETED":
             return None, 0, False
         # FAILED or IN_PROGRESS -> pick up right after the last committed batch.
-        next_index = (checkpoint["last_batch_index"] or -1) + 1
+        last_index = checkpoint["last_batch_index"]
+        next_index = (-1 if last_index is None else last_index) + 1
         return checkpoint["last_pk"], next_index, True
 
     def commit_batch(self, run_id: str, table_cfg: dict, batch_index: int, last_pk: dict) -> None:
@@ -107,7 +108,7 @@ class CheckpointManager:
             "last_batch_index": batch_index,
             "status": status,
             "run_id": run_id,
-            "updated_at": datetime.datetime.utcnow().isoformat(),
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         errors = self.client.insert_rows_json(self.table_ref, [row])
         if errors:

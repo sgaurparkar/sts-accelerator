@@ -1,3 +1,4 @@
+from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 
 from src.planner.type_mapper import build_bigquery_schema
@@ -8,7 +9,9 @@ class BqControlTables:
     def __init__(self, config: dict):
         self.project_id = config["gcp"]["project_id"]
         self.dataset = config["gcp"]["bq_dataset"]
-        self.client = bigquery.Client(project=self.project_id)
+        self.location = config["gcp"].get("location")          # set per region by region_resolver
+        self.region_slug = config.get("source", {}).get("region_slug")
+        self.client = bigquery.Client(project=self.project_id, location=self.location)
         self._ensured_datasets: set[str] = set()
 
     def _table_ref(self, table_name: str, dataset: str | None = None) -> str:
@@ -17,7 +20,7 @@ class BqControlTables:
     def dataset_for_table(self, table_cfg: dict) -> str:
         """The dataset a table's target/staging tables live in, derived
         from its source schema (table_cfg['schema'])."""
-        return dataset_for_schema(self.dataset, table_cfg["schema"])
+        return dataset_for_schema(self.dataset, table_cfg["schema"], self.region_slug)
 
     def ensure_dataset(self, dataset_id: str | None = None) -> None:
         dataset_id = dataset_id or self.dataset
@@ -25,12 +28,25 @@ class BqControlTables:
             return
         dataset_ref = bigquery.DatasetReference(self.project_id, dataset_id)
         try:
-            self.client.get_dataset(dataset_ref)
-            print(f"[bq_control_tables] Dataset already exists: {self.project_id}.{dataset_id}")
-        except Exception:
-            print(f"[bq_control_tables] Creating dataset {self.project_id}.{dataset_id} ...")
-            self.client.create_dataset(bigquery.Dataset(dataset_ref), exists_ok=True)
+            existing = self.client.get_dataset(dataset_ref)
+        except NotFound:
+            print(f"[bq_control_tables] Creating dataset {self.project_id}.{dataset_id} "
+                  f"in {self.location or 'default location'} ...")
+            dataset = bigquery.Dataset(dataset_ref)
+            if self.location:
+                dataset.location = self.location   # same GCP region as the landing bucket
+            self.client.create_dataset(dataset, exists_ok=True)
             print(f"[bq_control_tables] Dataset ready: {self.project_id}.{dataset_id}")
+        else:
+            # (any other error — e.g. permissions — now propagates instead of being
+            # mistaken for "dataset missing")
+            have = (existing.location or "").lower()
+            if self.location and have and have != self.location.lower():
+                raise RuntimeError(
+                    f"Dataset {self.project_id}.{dataset_id} already exists in {have}, but this region is "
+                    f"configured for {self.location} — BigQuery can't load GCS data across locations. "
+                    "Rename it (regions.<name>.bq_dataset) or fix gcp_location.")
+            print(f"[bq_control_tables] Dataset already exists: {self.project_id}.{dataset_id}")
         self._ensured_datasets.add(dataset_id)
 
     def _ensure_data_table(self, table_name: str, table_cfg: dict, dataset: str) -> None:
@@ -39,7 +55,7 @@ class BqControlTables:
             self.client.get_table(table_ref)
             print(f"[bq_control_tables] Table already exists: {table_ref}")
             return
-        except Exception:
+        except NotFound:
             pass
 
         print(f"[bq_control_tables] Creating table {table_ref} "
@@ -72,7 +88,7 @@ class BqControlTables:
         try:
             self.client.get_table(table_ref)
             return table_ref
-        except Exception:
+        except NotFound:
             pass
         print(f"[bq_control_tables] Creating control table {table_ref} ...")
         schema = [
@@ -103,7 +119,7 @@ class BqControlTables:
         try:
             self.client.get_table(table_ref)
             return table_ref
-        except Exception:
+        except NotFound:
             pass
         print(f"[bq_control_tables] Creating control table {table_ref} ...")
         schema = [
@@ -126,7 +142,7 @@ class BqControlTables:
         try:
             self.client.get_table(table_ref)
             return table_ref
-        except Exception:
+        except NotFound:
             pass
         print(f"[bq_control_tables] Creating control table {table_ref} ...")
         schema = [

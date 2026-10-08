@@ -34,6 +34,59 @@ def _load_yaml(name: str) -> dict:
         return yaml.safe_load(f)
 
 
+def _fail(message: str):
+    """Fail the task immediately (no retries) — a bad/missing region won't fix itself."""
+    try:
+        from airflow.exceptions import AirflowFailException
+    except ImportError:  # very old Airflow
+        raise RuntimeError(message)
+    raise AirflowFailException(message)
+
+
+def _requested_region(context, default=None):
+    """Region from the DAG-run conf ({"region": "East US"} or "all"), else the
+    SOURCE_REGION env var, else `default`."""
+    from src.config.region_resolver import clean_requested, region_from_env
+    conf = (context.get("dag_run") and context["dag_run"].conf) or {}
+    return clean_requested(conf.get("region")) or region_from_env() or default
+
+
+def _regions(context, default=None) -> list:
+    from src.config.region_resolver import RegionError, regions_to_run
+    try:
+        return regions_to_run(_load_yaml("settings.yaml"), _requested_region(context, default))
+    except RegionError as e:
+        _fail(str(e))
+
+
+def _settings_for_region(region) -> dict:
+    """settings.yaml pointed at one regional SQL server / GCP region (region=None
+    in legacy single-server mode)."""
+    from src.config.region_resolver import RegionError, resolve_region
+    try:
+        return resolve_region(_load_yaml("settings.yaml"), region)
+    except RegionError as e:
+        _fail(str(e))
+
+
+def _plan_by_region(regions, load_mode: str) -> list[dict]:
+    """[{"region": ..., "table_cfg": ...}, ...] for every table of `load_mode` in every
+    region. One unreachable region is reported loudly but doesn't stop the others;
+    if EVERY region fails the task fails."""
+    from src.planner.table_planner import build_table_plan
+    items, errors = [], []
+    for region in regions:
+        try:
+            plan = build_table_plan(_settings_for_region(region))
+            items += [{"region": region, "table_cfg": t} for t in plan if t["load_mode"] == load_mode]
+        except Exception as exc:
+            print(f"DISCOVERY FAILED | Region={region} | Reason={exc}")
+            errors.append(f"{region}: {exc}")
+    if errors and len(errors) == len(regions):
+        _fail("Table discovery failed for every region — " + " | ".join(errors))
+    return items
+
+
 default_args = {"owner": "migration-accelerator", "retries": 2, "retry_delay": timedelta(minutes=5)}
 
 with DAG(
@@ -46,19 +99,21 @@ with DAG(
 ) as dag:
 
     @task
-    def discover_incremental_tables() -> list[dict]:
-        from src.planner.table_planner import build_table_plan
-        settings = _load_yaml("settings.yaml")
-        return [t for t in build_table_plan(settings) if t["load_mode"] == "incremental"]
+    def discover_incremental_tables(**context) -> list[dict]:
+        # The schedule has no conf, so by default EVERY configured region is synced;
+        # trigger manually with {"region": "East US"} (or set SOURCE_REGION) to run one.
+        return _plan_by_region(_regions(context, default="all"), "incremental")
 
     @task
-    def sync_table(table_cfg: dict, **context) -> dict:
+    def sync_table(item: dict, **context) -> dict:
         from src.pipeline.table_pipeline import run_table
-        settings = _load_yaml("settings.yaml")
+        settings = _settings_for_region(item["region"])
         logging_config = _load_yaml("logging.yaml")
         run_id = context["dag_run"].run_id
-        # Trigger with conf {"force": true} to reload tables that already COMPLETED.
-        force = bool((context["dag_run"].conf or {}).get("force", False))
-        return run_table(settings, logging_config, table_cfg, run_id, force=force)
+        if item["region"]:
+            run_id = f"{run_id}:{item['region']}"
+        # Trigger with conf {"region": "East US", "force": true} (force reloads tables that already COMPLETED).
+        force = bool(((context["dag_run"].conf) or {}).get("force", False))
+        return run_table(settings, logging_config, item["table_cfg"], run_id, force=force)
 
-    sync_table.expand(table_cfg=discover_incremental_tables())
+    sync_table.expand(item=discover_incremental_tables())

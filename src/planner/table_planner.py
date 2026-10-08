@@ -2,6 +2,7 @@ import os
 
 import yaml
 
+from src.config.region_resolver import same_region
 from src.discovery.table_discovery import TableDiscovery
 from src.discovery.schema_reader import SchemaReader
 
@@ -21,22 +22,29 @@ class SchemaNotFoundError(Exception):
     find (typo, wrong case, schema with no base tables, etc.)."""
 
 
-def _load_overrides(overrides_path: str) -> dict:
+def _load_overrides(overrides_path: str, region_slug: str | None = None) -> dict:
     """Keyed by (schema, name) so the same table name in two different
     schemas can be overridden independently. An override entry with no
     `schema` field (schema: None) is treated as a wildcard that applies
-    to that table name in *any* schema, for backward compatibility with
-    overrides files written before schema-scoping existed."""
+    to that table name in *any* schema.
+
+    An entry may also carry `region: East US` to apply only when running
+    that region (matched ignoring case/spaces/hyphens); entries without
+    `region` apply to every region. When both exist for the same table,
+    the region-specific entry wins. A region-scoped entry never applies to
+    a run that has no region.
+    """
     if not overrides_path or not os.path.exists(overrides_path):
         return {}
     with open(overrides_path) as f:
         data = yaml.safe_load(f) or {}
+    entries = [o for o in (data.get("overrides") or []) if isinstance(o, dict) and o.get("name")]
+    entries.sort(key=lambda o: bool(o.get("region")))     # generic first, region-specific last (wins)
     out = {}
-    for o in data.get("overrides", []) or []:
-        name = o.get("name")
-        if not name:
+    for o in entries:
+        if o.get("region") and not same_region(o["region"], region_slug):
             continue
-        out[(o.get("schema"), name)] = o
+        out[(o.get("schema"), o["name"])] = o
     return out
 
 
@@ -46,7 +54,16 @@ def _override_for(overrides: dict, schema: str, name: str) -> dict:
     return overrides.get((None, name), {})
 
 
-def _dump_table_plan(plan: list[dict], path: str = "config/tables.yaml") -> None:
+def _snapshot_path(path: str, region_slug: str | None) -> str:
+    """config/tables.yaml -> config/tables_east_us.yaml in region mode, so one
+    region's run never overwrites another region's snapshot."""
+    if not region_slug:
+        return path
+    root, ext = os.path.splitext(path)
+    return f"{root}_{region_slug}{ext}"
+
+
+def _dump_table_plan(plan: list[dict], path: str = "config/tables.yaml", region: str | None = None) -> None:
     """Auto-generated, read-only snapshot of the plan just built — for
     humans to look at, never for the pipeline to read back in. Rewritten
     from scratch every time build_table_plan() runs, so it can never go
@@ -60,6 +77,7 @@ def _dump_table_plan(plan: list[dict], path: str = "config/tables.yaml") -> None
             os.makedirs(directory, exist_ok=True)
         snapshot = {
             "_generated_by": "src/planner/table_planner.py — rewritten on every run, do not hand-edit",
+            "region": region,
             "tables": [
                 {
                     "schema": t["schema"],
@@ -96,7 +114,8 @@ def build_table_plan(config: dict, schema: str | None = None) -> list[dict]:
     """
     discovery = TableDiscovery(config)
     schema_reader = SchemaReader(config)
-    overrides = _load_overrides(config.get("overrides_file"))
+    region_slug = config.get("source", {}).get("region_slug")
+    overrides = _load_overrides(config.get("overrides_file"), region_slug)
 
     if schema:
         if not discovery.schema_exists(schema):
@@ -165,11 +184,11 @@ def build_table_plan(config: dict, schema: str | None = None) -> list[dict]:
             "synthetic_key": synthetic_key,
             "columns": columns,
             "load_mode": load_mode,
-            "source_query": f"SELECT * FROM [{table_schema}].[{table_name}]",
         })
 
     if schema is None:
-        _dump_table_plan(plan, config.get("tables_snapshot_file", "config/tables.yaml"))
+        _dump_table_plan(plan, _snapshot_path(config.get("tables_snapshot_file", "config/tables.yaml"), region_slug),
+                         region=config.get("source", {}).get("region"))
     print(f"[table_planner] Planning complete: {len(plan)} table(s) planned "
           f"({sum(1 for t in plan if t['load_mode'] == 'full')} full, "
           f"{sum(1 for t in plan if t['load_mode'] == 'incremental')} incremental)")

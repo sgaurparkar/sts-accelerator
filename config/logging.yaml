@@ -1,7 +1,5 @@
 # Controls how the metadata/reporting modules behave.
 
-log_level: INFO
-
 # Raw per-stage-event logs are the pipeline's audit trail, so they must
 # live somewhere durable and shared across every Composer worker — a
 # local path does NOT survive across workers/task retries, which is why

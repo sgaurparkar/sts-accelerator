@@ -1,4 +1,5 @@
 import datetime
+import os
 
 from src.extraction.sql_extractor import SqlExtractor
 from src.extraction.parquet_writer import write_parquet, remove_column
@@ -35,12 +36,16 @@ def run_table(settings: dict, logging_config: dict, table_cfg: dict, run_id: str
     qualified_name = f"{schema_name}.{table_name}"
     metadata_cfg = settings.get("metadata", {})
 
+    gcs = GcsManager(settings)
+    gcs.ensure_bucket()   # region's landing bucket, created in the matching GCP location
     metadata = MetadataManager(logging_config, settings["gcp"])
     control_tables = BqControlTables(settings)
     checkpoint = CheckpointManager(settings, metadata_cfg.get("checkpoint_table", "migration_checkpoint"))
-    batch_size = settings.get("extraction", {}).get("batch_size", 1000)
+    batch_size = settings.get("extraction", {}).get("batch_size", 25000)
 
     cutoff_date = settings.get("extraction", {}).get("cutoff_date")
+    region_slug = settings.get("source", {}).get("region_slug")
+    local_parquet_dir = os.path.join("data/parquet", region_slug) if region_slug else "data/parquet"
 
     print(f"\n[table_pipeline] ===== Starting pipeline for {qualified_name} =====")
     print(f"[table_pipeline] run_id={run_id} | load_mode={table_cfg['load_mode']} | "
@@ -92,7 +97,7 @@ def run_table(settings: dict, logging_config: dict, table_cfg: dict, run_id: str
         print(f"[table_pipeline] [planning] Starting {qualified_name} from batch 0 "
               f"(no in-progress checkpoint found)")
 
-    started_at = datetime.datetime.utcnow()
+    started_at = datetime.datetime.now(datetime.timezone.utc)
     batches_processed = 0
     rows_processed = 0
     last_pk = resume_after
@@ -108,7 +113,6 @@ def run_table(settings: dict, logging_config: dict, table_cfg: dict, run_id: str
         extractor = SqlExtractor(settings)
         uploader = BlobUploader(settings)
         sts = StsJobManager(settings)
-        gcs = GcsManager(settings)
         merger = BqMerge(settings)
 
         for batch_index, df in extractor.extract_batches(table_cfg, batch_size, resume_after=resume_after,
@@ -121,7 +125,7 @@ def run_table(settings: dict, logging_config: dict, table_cfg: dict, run_id: str
                   f"writing Parquet ...")
             metadata.log_stage_start(run_id, table_name, "extraction", schema_name)
             parquet_path = write_parquet(df, table_name, schema_name, real_batch_index,
-                                          columns=table_cfg["columns"])
+                                          columns=table_cfg["columns"], output_dir=local_parquet_dir)
             batch_parquet_paths.append((real_batch_index, parquet_path))
             metadata.log_stage_end(run_id, table_name, "extraction", "SUCCESS",
                                     schema_name=schema_name, batch_index=real_batch_index,
@@ -280,7 +284,7 @@ def run_table(settings: dict, logging_config: dict, table_cfg: dict, run_id: str
 
     except Exception as e:
         print(f"\n[table_pipeline] ===== {qualified_name}: FAILED — {e} =====")
-        checkpoint.mark_failed(run_id, table_cfg, start_batch_index + max(batches_processed - 1, 0), last_pk)
+        checkpoint.mark_failed(run_id, table_cfg, start_batch_index + batches_processed - 1, last_pk)
         metadata.log_stage_end(run_id, table_name, "pipeline", "FAILED",
                                 schema_name=schema_name, error_message=str(e))
         _write_audit_row(control_tables, metadata_cfg, run_id, table_cfg, "FAILED",
@@ -314,7 +318,7 @@ def _write_audit_row(control_tables: BqControlTables, metadata_cfg: dict, run_id
         "rows_processed": rows_processed,
         "resumed_from_batch": resumed_from_batch,
         "started_at": started_at.isoformat(),
-        "finished_at": datetime.datetime.utcnow().isoformat(),
+        "finished_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "error_message": error_message,
     }
     errors = control_tables.client.insert_rows_json(table_ref, [row])

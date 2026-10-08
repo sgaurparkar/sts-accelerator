@@ -35,14 +35,19 @@ import os
 import time
 from azure.storage.blob import BlobServiceClient
 
+from src.config.connection import regional_env
+
 
 class BlobUploader:
     def __init__(self, config: dict):
         self.container_name = config["azure"]["container"]
-        conn_str = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
+        self.region_slug = config.get("source", {}).get("region_slug")
+        conn_str = regional_env("AZURE_STORAGE_CONNECTION_STRING", self.region_slug)
         if not conn_str:
+            hint = (f" (or AZURE_STORAGE_CONNECTION_STRING_{self.region_slug.upper()} for this region)"
+                    if self.region_slug else "")
             raise RuntimeError(
-                "AZURE_STORAGE_CONNECTION_STRING not set — check your .env file"
+                f"AZURE_STORAGE_CONNECTION_STRING{hint} not set — check your .env file"
             )
         upload_cfg = config.get("azure", {}).get("upload", {})
         self.connection_timeout = upload_cfg.get("connection_timeout_seconds", 300)
@@ -56,6 +61,7 @@ class BlobUploader:
             conn_str,
             connection_timeout=self.connection_timeout,
             read_timeout=self.read_timeout,
+            max_block_size=self.max_block_size,
         )
 
     def upload_file(self, local_path: str, table_name: str, schema_name: str) -> str:
@@ -68,6 +74,8 @@ class BlobUploader:
         bookkeeping this pipeline doesn't need for batch-sized files."""
         filename = os.path.basename(local_path)
         blob_path = f"{schema_name}/{table_name}/{filename}"
+        if self.region_slug:   # keep regions apart in the shared container so STS never picks up another region's files
+            blob_path = f"{self.region_slug}/{blob_path}"
         blob_client = self.client.get_blob_client(container=self.container_name, blob=blob_path)
 
         size_bytes = os.path.getsize(local_path)
@@ -98,7 +106,3 @@ class BlobUploader:
         raise RuntimeError(
             f"Upload of {blob_path} failed after {self.max_retries} attempts: {last_error}"
         ) from last_error
-
-    def list_blobs(self, table_name: str, schema_name: str) -> list[str]:
-        container_client = self.client.get_container_client(self.container_name)
-        return [b.name for b in container_client.list_blobs(name_starts_with=f"{schema_name}/{table_name}/")]
