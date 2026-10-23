@@ -223,7 +223,7 @@ cleanup:
 locking:
   enabled: true                     # one runner per table (full DAG vs incremental DAG vs retries)
   ttl_seconds: 7200                 # a crashed run's lease expires after this
-  wait_seconds: 0                   # wait this long for a busy table before giving up
+  wait_seconds: 120                 # wait this long for a busy table before giving up
 
 metadata:                           # tables in <project>.migration_control_<location>
   log_table: migration_pipeline_logs

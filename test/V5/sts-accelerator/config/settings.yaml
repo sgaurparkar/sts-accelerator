@@ -86,8 +86,8 @@ source:
 
 # Where secrets come from: env (.env) always; optionally Google Secret Manager too
 secrets:
-  provider: env                    # env | gcp_secret_manager
-  project: null                    # Secret Manager project (secret id = variable name lower-cased, "_" -> "-")
+  provider: azure_key_vault                    # env | gcp_secret_manager
+  key_vault_url: null                  # Secret Manager project (secret id = variable name lower-cased, "_" -> "-")
   # Variable names tried for every SQL server, first one that is set wins. Placeholders are the
   # Azure names upper-cased, non-letters/digits -> "_":
   #   resource group ingredion-dev-rg-central-india     -> {RESOURCE_GROUP} INGREDION_DEV_RG_CENTRAL_INDIA
@@ -154,7 +154,8 @@ gcp:
     api_ready_timeout_seconds: 240
 
   datasets:
-    name_template: "{server}_{database}"      # {server} {database} {resource_group}
+    sep: "__"
+    name_template: "{server}__{database}"      # {server} {database} {resource_group}
     overrides: {}                             # {"sqlserver1/SalesDB": sales_india}
 
   location_mapping:
@@ -162,7 +163,7 @@ gcp:
     overrides: {}                   # {"Central India": asia-south1, "East US": US}
 
   table_naming:
-    schema_prefix: non_default      # dbo.Orders -> Orders, sales.Orders -> sales__Orders
+    schema_prefix: always      # dbo.Orders -> Orders, sales.Orders -> sales__Orders
     default_schema: dbo
     separator: "__"
 
@@ -187,10 +188,7 @@ types:
 # Extraction & loading
 # ---------------------------------------------------------------------------------------
 extraction:
-  batch_size: 50000                 # rows per page / Parquet file
-  batches_per_chunk: 40             # files per chunk: one transfer + one load + one MERGE per chunk
-                                    # (50k x 40 = 2M rows; keeps BigQuery far below its daily
-                                    #  1,500-loads-per-table limit even for billion-row tables)
+  batch_size: 50000                 #  1,500-loads-per-table limit even for billion-row tables)
   local_dir: data                   # local spool for Parquet files (deleted after each chunk)
   no_pk_strategy: stream            # tables without PK/unique index, full loads only:
                                     #   stream       one forward-only read, nothing written to the source

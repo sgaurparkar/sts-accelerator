@@ -146,3 +146,94 @@ def test_check_connections_probe(monkeypatch):
     checks = check_targets(s, ts[:1], engine_factory=lambda cfg: engine)
     assert checks[0]["ok"] and checks[0]["info"]["procedures"] == 5
     assert any("VIEW DEFINITION" in w for w in checks[0]["warnings"])
+
+
+# ---- Azure Key Vault ---------------------------------------------------------------------------
+class FakeVault:
+    """Stands in for azure.keyvault.secrets.SecretClient."""
+
+    def __init__(self, secrets, deny=False):
+        self.secrets, self.deny, self.gets = secrets, deny, []
+
+    def get_secret(self, name):
+        from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
+        self.gets.append(name)
+        if self.deny:
+            err = HttpResponseError(message="Forbidden")
+            err.status_code = 403
+            raise err
+        if name not in self.secrets:
+            raise ResourceNotFoundError("not found")
+        return SimpleNamespace(value=self.secrets[name])
+
+    def list_properties_of_secrets(self):
+        return [SimpleNamespace(name=n, enabled=True) for n in self.secrets]
+
+
+VAULT = "https://ingredion-kv.vault.azure.net/"
+
+
+def use_vault(monkeypatch, secrets, deny=False, **cfg):
+    vault = FakeVault(secrets, deny)
+    monkeypatch.setattr(c, "_kv_client", lambda url: vault)
+    c.configure_secrets({"provider": "azure_key_vault", "key_vault_url": VAULT, **cfg})
+    return vault
+
+
+def test_vault_secret_name():
+    assert c.vault_secret_name(IN_PWD) == \
+        "ingredion-dev-rg-central-india-azure-sql-ingredion-dev-server-central-indiaa-password"
+
+
+def test_key_vault_supplies_sql_logins_with_exact_names(monkeypatch):
+    use_vault(monkeypatch, {c.vault_secret_name(IN_USER): "kv-user", c.vault_secret_name(IN_PWD): "kv-p@ss##1"})
+    src = src_of(0)["source"]
+    assert c.sql_secret("USERNAME", src) == ("kv-user", f"keyvault:{c.vault_secret_name(IN_USER)}")
+    assert c.sql_secret("PASSWORD", src)[0] == "kv-p@ss##1"
+
+
+def test_key_vault_accepts_a_typo_secret_name(monkeypatch):
+    typo = c.vault_secret_name(US_PWD_TYPO)                 # ...-east-usazure-sql-... (missing "-")
+    use_vault(monkeypatch, {typo: "us-secret"})
+    value, source = c.sql_secret("PASSWORD", src_of(1)["source"])
+    assert value == "us-secret" and source == f"keyvault:{typo}"
+
+
+def test_env_wins_over_key_vault_and_cache(monkeypatch):
+    vault = use_vault(monkeypatch, {c.vault_secret_name(IN_USER): "kv-user"})
+    monkeypatch.setenv(IN_USER, "local-user")
+    assert c.sql_secret("USERNAME", src_of(0)["source"]) == ("local-user", IN_USER)
+    assert vault.gets == []                                  # vault never asked
+    monkeypatch.delenv(IN_USER)
+    c.sql_secret("USERNAME", src_of(0)["source"]); c.sql_secret("USERNAME", src_of(0)["source"])
+    assert vault.gets.count(c.vault_secret_name(IN_USER)) == 1   # cached
+
+
+def test_key_vault_missing_and_denied(monkeypatch):
+    use_vault(monkeypatch, {})
+    with pytest.raises(RuntimeError, match="Key Vault secret ingredion-dev-rg-central-india-azure-sql"):
+        c.sql_secret("PASSWORD", src_of(0)["source"])
+    use_vault(monkeypatch, {}, deny=True)
+    with pytest.raises(RuntimeError, match="Key Vault Secrets User"):
+        c.sql_secret("PASSWORD", src_of(0)["source"])
+
+
+def test_key_vault_url_from_env_and_required(monkeypatch):
+    c.configure_secrets({})
+    monkeypatch.delenv("KEY_VAULT_URL", raising=False)
+    assert c.key_vault_url() is None
+    monkeypatch.setenv("KEY_VAULT_URL", "ingredion-kv")
+    assert c.key_vault_url() == VAULT
+    monkeypatch.delenv("KEY_VAULT_URL")
+    c.configure_secrets({"provider": "azure_key_vault"})
+    with pytest.raises(RuntimeError, match="key_vault_url"):
+        c.key_vault_url()
+
+
+def test_check_connections_shows_key_vault_source(monkeypatch):
+    use_vault(monkeypatch, {c.vault_secret_name(IN_USER): "u", c.vault_secret_name(IN_PWD): "p",
+                            "azure-sas-token": "sv=1&se=2030-01-01T00:00:00Z&sig=x",
+                            "azure-storage-connection-string": "AccountName=ingrediondevstg01;AccountKey=k"})
+    s, ts = targets()
+    checks = check_targets(s, ts[:1], connect=False)
+    assert checks[0]["vars"]["password"].startswith("keyvault:") and checks[0]["ok"]

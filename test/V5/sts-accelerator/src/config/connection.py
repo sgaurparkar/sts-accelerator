@@ -20,9 +20,24 @@ INGREDION_DEV_RG_CENTRAL_INDIA):
   Azure Storage (NAME = AZURE_STORAGE_CONNECTION_STRING | AZURE_SAS_TOKEN)
     {RESOURCE_GROUP}_{NAME}  ->  {NAME}_{ACCOUNT}  ->  {NAME}_{LOCATION}  ->  {NAME}
 
-Values come from the environment / .env first, then — with
-secrets.provider: gcp_secret_manager — from Google Secret Manager (secret id =
-the variable name lower-cased with hyphens).
+Where values come from, in this order (first one found wins):
+
+  1. the environment / .env                      exact name, then typo-tolerant name
+  2. Azure Key Vault                             secrets.provider: azure_key_vault, or KEY_VAULT_URL set
+       vault URL   secrets.key_vault_url  or  env KEY_VAULT_URL
+       secret name = the variable name lower-cased, "_" -> "-" (Key Vault allows only
+                     letters, digits and hyphens), e.g.
+                     INGREDION_DEV_RG_CENTRAL_INDIA_AZURE_SQL_INGREDION_DEV_SERVER_CENTRAL_INDIAA_PASSWORD
+                  -> ingredion-dev-rg-central-india-azure-sql-ingredion-dev-server-central-indiaa-password
+       a vault secret whose name differs only in "-" (a typo) is also found, with a warning
+       auth: DefaultAzureCredential — AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET
+             (service principal), az login, or a managed identity; needs the
+             "Key Vault Secrets User" role on the vault
+  3. Google Secret Manager                       secrets.provider: gcp_secret_manager
+       secret id = the variable name lower-cased with hyphens
+
+So with Key Vault the .env can hold no secrets at all; a value in .env still wins
+(handy for a local override).
 
 A variable whose name differs from an expected one only in underscores (e.g.
 ..._EAST_USAZURE_SQL_... instead of ..._EAST_US_AZURE_SQL_...) is still used
@@ -65,6 +80,10 @@ _PLACEHOLDER = re.compile(r"\{([A-Z_]+)\}")
 
 _SETTINGS_SECRETS: dict = {}      # set by configure_secrets() from settings.yaml `secrets:`
 _SM_CACHE: dict[str, str | None] = {}
+_KV_CACHE: dict[str, str | None] = {}         # "<vault url>|<secret name>" -> value (None = not there)
+_KV_NAMES: dict[str, dict[str, str]] = {}     # vault url -> {compact name: real secret name}
+_KV_CLIENTS: dict[str, object] = {}
+_KV_GUARD = threading.Lock()
 _WARNED: set[str] = set()
 _WARN_GUARD = threading.Lock()
 
@@ -72,6 +91,8 @@ _WARN_GUARD = threading.Lock()
 def configure_secrets(secrets_cfg: dict | None) -> None:
     _SETTINGS_SECRETS.clear()
     _SETTINGS_SECRETS.update(secrets_cfg or {})
+    _KV_CACHE.clear()
+    _KV_NAMES.clear()
 
 
 def env_part(text) -> str:
@@ -133,6 +154,119 @@ def _secret_manager(var: str) -> str | None:
     return value
 
 
+# ------------------------------------------------------------- Azure Key Vault --
+def key_vault_url() -> str | None:
+    """The vault to read, or None when Key Vault is not in use."""
+    url = (_SETTINGS_SECRETS.get("key_vault_url") or os.environ.get("KEY_VAULT_URL") or "").strip()
+    provider = str(_SETTINGS_SECRETS.get("provider") or "env").lower()
+    if provider == "azure_key_vault" and not url:
+        raise RuntimeError("secrets.provider is azure_key_vault but no vault is set — set secrets.key_vault_url "
+                           "in settings.yaml or KEY_VAULT_URL in .env (https://<vault-name>.vault.azure.net/).")
+    if not url:
+        return None
+    if not url.startswith("https://"):
+        url = f"https://{url}.vault.azure.net/" if "." not in url else f"https://{url}"
+    return url.rstrip("/") + "/"
+
+
+def vault_secret_name(var: str) -> str:
+    """INGREDION_DEV_RG_..._PASSWORD -> ingredion-dev-rg-...-password"""
+    return re.sub(r"[^a-z0-9-]+", "-", var.lower().replace("_", "-")).strip("-")[:127]
+
+
+def _kv_client(url: str):
+    with _KV_GUARD:
+        client = _KV_CLIENTS.get(url)
+        if client is None:
+            try:
+                from azure.identity import DefaultAzureCredential
+                from azure.keyvault.secrets import SecretClient
+            except ImportError as exc:
+                raise RuntimeError("Azure Key Vault needs azure-identity and azure-keyvault-secrets: "
+                                   "pip install -r requirements.txt") from exc
+            client = SecretClient(vault_url=url, credential=DefaultAzureCredential())
+            _KV_CLIENTS[url] = client
+        return client
+
+
+def _kv_error(url: str, what: str, exc) -> RuntimeError:
+    code = getattr(exc, "status_code", None)
+    return RuntimeError(f"Key Vault {url}: {what} failed ({code or type(exc).__name__}). Check the vault URL, the "
+                        "Azure login (AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET, or az login) and "
+                        "that this identity has the 'Key Vault Secrets User' role on the vault. "
+                        "A firewalled vault must also be reachable over the VPN / private endpoint.")
+
+
+def _kv_get(url: str, name: str) -> str | None:
+    key = f"{url}|{name}"
+    if key in _KV_CACHE:
+        return _KV_CACHE[key]
+    from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
+    try:
+        value = _kv_client(url).get_secret(name).value
+    except ResourceNotFoundError:
+        value = None                              # not in the vault -> try the next candidate
+    except HttpResponseError as exc:              # 401 / 403 / network: fail loudly, never skip silently
+        raise _kv_error(url, f'reading secret "{name}"', exc) from exc
+    except Exception as exc:                      # credential / DNS problems
+        if type(exc).__name__ in ("ClientAuthenticationError", "CredentialUnavailableError", "ServiceRequestError"):
+            raise _kv_error(url, f'reading secret "{name}"', exc) from exc
+        raise
+    value = value.strip() if value and value.strip() else None
+    _KV_CACHE[key] = value
+    return value
+
+
+def _kv_names(url: str) -> dict[str, str]:
+    """{compact name: secret name} of every enabled secret (for typo-tolerant lookups).
+    Listing needs read-metadata permission; without it only exact names are used."""
+    if url in _KV_NAMES:
+        return _KV_NAMES[url]
+    names: dict[str, str] = {}
+    try:
+        for props in _kv_client(url).list_properties_of_secrets():
+            if getattr(props, "enabled", True) and props.name:
+                names.setdefault(_compact(props.name), props.name)
+    except Exception as exc:
+        LOG.debug("Key Vault %s: cannot list secret names (%s); typo-tolerant lookups disabled", url, exc)
+    _KV_NAMES[url] = names
+    return names
+
+
+def _from_key_vault(candidates: list[str]) -> tuple[str | None, str | None]:
+    url = key_vault_url()
+    if not url:
+        return None, None
+    for var in candidates:
+        name = vault_secret_name(var)
+        value = _kv_get(url, name)
+        if value:
+            return value, f"keyvault:{name}"
+    if _SETTINGS_SECRETS.get("fuzzy_match", True):
+        names = _kv_names(url)
+        for var in candidates:
+            actual = names.get(_compact(var))
+            if actual and actual != vault_secret_name(var):
+                value = _kv_get(url, actual)
+                if value:
+                    _warn_once(f"kv:{actual}->{var}", "Using Key Vault secret %s for %s — the names differ only in "
+                               "hyphens; rename the secret to %s to silence this warning.",
+                               actual, var, vault_secret_name(var))
+                    return value, f"keyvault:{actual}"
+    return None, None
+
+
+def _vault_hint(names: list[str]) -> str:
+    url = None
+    try:
+        url = key_vault_url()
+    except RuntimeError:
+        pass
+    if url and names:
+        return f" or as Key Vault secret {vault_secret_name(names[0])} in {url}"
+    return " (or Azure Key Vault / Secret Manager, see secrets: in settings.yaml)"
+
+
 def _warn_once(key: str, msg: str, *args) -> None:
     with _WARN_GUARD:
         if key in _WARNED:
@@ -142,9 +276,10 @@ def _warn_once(key: str, msg: str, *args) -> None:
 
 
 def resolve_secret(candidates: list[str]) -> tuple[str | None, str | None]:
-    """(value, variable it came from) for the first candidate that is set:
-    exact environment names, then names that differ only in underscores / case
-    (secrets.fuzzy_match), then Secret Manager. (None, None) if none is set."""
+    """(value, where it came from) for the first candidate that is set: exact
+    environment names, then names that differ only in underscores / case
+    (secrets.fuzzy_match), then Azure Key Vault (exact, then typo-tolerant), then
+    Google Secret Manager. (None, None) if none is set."""
     for var in candidates:
         value = os.environ.get(var)
         if value and value.strip():
@@ -160,6 +295,9 @@ def resolve_secret(candidates: list[str]) -> tuple[str | None, str | None]:
                 _warn_once(f"{actual}->{var}", "Using environment variable %s for %s — the names differ only in "
                            "underscores/case; fix the name in .env to silence this warning.", actual, var)
                 return os.environ[actual].strip(), actual
+    value, source = _from_key_vault(candidates)
+    if value:
+        return value, source
     for var in candidates:
         value = _secret_manager(var)
         if value and value.strip():
@@ -179,8 +317,7 @@ def require_env(name: str, suffixes=None, hint: str = ".env") -> str:
     if value:
         return value
     tried = [f"{name}_{s}" for s in _as_suffixes(suffixes)] + [name]
-    raise RuntimeError(f"Missing secret — set one of {', '.join(tried)} in {hint} "
-                       "(or Secret Manager, see secrets: in settings.yaml).")
+    raise RuntimeError(f"Missing secret — set one of {', '.join(tried)} in {hint}{_vault_hint(tried)}.")
 
 
 # ------------------------------------------------------------------ SQL logins --
@@ -200,8 +337,8 @@ def sql_secret(field: str, source_cfg: dict, required: bool = True) -> tuple[str
     value, var = resolve_secret(candidates)
     if value is None and required:
         where = f"{source_cfg.get('resource_group') or '?'}/{source_cfg.get('server') or '?'}"
-        raise RuntimeError(f"Missing {field.lower()} for {where} — set one of {', '.join(candidates)} in .env "
-                           "(or Secret Manager, see secrets: in settings.yaml).")
+        raise RuntimeError(f"Missing {field.lower()} for {where} — set one of {', '.join(candidates)} in .env"
+                           f"{_vault_hint(candidates)}.")
     return value, var
 
 
@@ -218,8 +355,7 @@ def storage_secret(name: str, config: dict, required: bool = True) -> tuple[str 
     candidates = storage_secret_candidates(name, config)
     value, var = resolve_secret(candidates)
     if value is None and required:
-        raise RuntimeError(f"{name} not set — set one of {', '.join(candidates)} in .env "
-                           "(or Secret Manager, see secrets: in settings.yaml).")
+        raise RuntimeError(f"{name} not set — set one of {', '.join(candidates)} in .env{_vault_hint(candidates)}.")
     return value, var
 
 
