@@ -1,0 +1,21 @@
+_generated_by: "src/planner/table_planner.py \u2014 rewritten on every run, do not\
+  \ hand-edit"
+tables:
+- schema: dbo
+  name: dataset-06-10
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full
+- schema: dbo
+  name: dummy_dataset_100000--06-10
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full
+- schema: sales
+  name: dataset02--06-10
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full

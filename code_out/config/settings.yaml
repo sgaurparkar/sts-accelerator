@@ -1,0 +1,225 @@
+# Central configuration for the accelerator.
+# There is NO per-table list here anymore — table names, columns and
+# primary keys are all discovered dynamically at runtime straight from
+# SQL Server (src/discovery/table_discovery.py). Connection secrets go
+# in .env (see .env.example) — never here.
+ 
+source:
+  type: mssql                      # only mssql is supported
+  host: sql-sts-eastus-vipqb.database.windows.net   # fallback only — overridden by --region (see `regions:` below)
+  database: sts_poc_db
+  driver: "ODBC Driver 18 for SQL Server"
+  schemas: []                      # which SQL Server schemas to discover tables from.
+                                    # Leave empty ([]) to auto-discover EVERY schema that
+                                    # owns at least one base table, straight off SQL Server
+                                    # (system/security schemas excluded) — this is what makes
+                                    # `python main.py --all` cover every schema with zero
+                                    # config change. Set an explicit list (e.g. [dbo, sales])
+                                    # to scope the pipeline to only those schemas instead.
+                                    # Each schema gets its own BigQuery dataset — see
+                                    # gcp.bq_dataset below.
+  # username/password are read from .env as AZURE_SQL_USERNAME / AZURE_SQL_PASSWORD
+ 
+# One Azure SQL server per Azure region. The key is the region name exactly as
+# Azure shows it; pick one at run time with  --region "<name>"  (case, spaces
+# and hyphens are ignored, so "east us" / "East-US" / "eastus" all work).
+# Replace each <...> placeholder with that region's real server FQDN
+# (Azure portal -> SQL server -> Overview -> "Server name").
+# gcp_location = GCP region used for that Azure region's GCS bucket + BigQuery
+# datasets (closest match; change if you prefer another).
+# Per region, GCP is separated automatically:
+#   bucket        <gcp.gcs_bucket>-<region>      e.g. migration-landing-bucket-east-us
+#   control ds    <gcp.bq_dataset>_<region>      e.g. migrated_data_east_us   (checkpoint/audit/logs/report)
+#   data datasets <region>_<schema>              e.g. east_us_dbo, east_us_sales
+# Required per region: host, gcp_location.   Optional: resource_group, server (see multi_project below).
+# A key does not have to be a region: with several SQL servers in one region/resource group use any
+# unique label (e.g. "rg1-sqlserver1"), each with its own host, database and resource_group.
+# Optional per region: database, storage_account, gcs_bucket, bq_dataset (override the names above).
+# Credentials: shared AZURE_SQL_USERNAME/PASSWORD in .env, or AZURE_SQL_USERNAME_<REGION>/..._PASSWORD_<REGION>
+# (e.g. _EAST_US) when a region's server has its own login — see .env.example.
+regions:
+  # ---- POC REGIONS (5) --------------------------------------------------------
+  # North America is the central hub (the only VPN exit) for the POC.
+  # Replace each <...> host with that region's real SQL server FQDN.
+  # For traffic to use the Azure<->GCP VPN, the host name must resolve to the
+  # server's PRIVATE endpoint address from inside migration-vpc-global
+  # (Cloud DNS private zone, setup guide step 10); `--check-network` verifies this.
+  # gcp_location matches terraform/gcp/regional.tf.
+  East US:
+    host: sql-sts-eastus-vipqb.database.windows.net
+    resource_group: rg-na-eastus      # Azure resource group (used by --resource-group and, in multi_project mode, the GCP project name)
+    server: sql-sts-eastus-vipqb
+    database: sts_poc_db
+    gcp_location: us-east4
+    storage_account: azurergnavma101807140
+
+  West US 2:
+    host: sql-sts-westus2-vipqb.database.windows.net
+    resource_group: rg-na-westus2      # Azure resource group (used by --resource-group and, in multi_project mode, the GCP project name)
+    server: sql-sts-westus2-vipqb
+    database: sts_poc_db
+    gcp_location: us-west1
+    storage_account: stgnawest47913
+
+  Germany West Central:
+    host: sql-sts-gwc-vipqb.database.windows.net
+    resource_group: rg-emea-germany      # Azure resource group (used by --resource-group and, in multi_project mode, the GCP project name)
+    server: sql-sts-gwc-vipqb
+    database: sts_poc_db
+    gcp_location: europe-west3
+    storage_account: stgemea12644
+  # Brazil South:
+  #   host: <sql-poc-brazil>.database.windows.net
+  #   database: sts_poc_db
+  #   gcp_location: southamerica-east1
+  # Southeast Asia:
+  #   host: <sql-poc-sea>.database.windows.net
+  #   database: sts_poc_db
+  #   gcp_location: asia-southeast1
+  # ---- LATER PHASES: uncomment and fill in when you add these regions ----------
+  # North Central US:
+  #   host: <sql-...>.database.windows.net
+  #   database: sales_poc
+  #   gcp_location: us-central1
+  # Central US:
+  #   host: central-us.database.windows.net
+  #   database: sales1_poc
+  #   gcp_location: us-central1
+  # West US:
+  #   host: <sql-...>.database.windows.net
+  #   database: sales_poc
+  #   gcp_location: us-west2
+ 
+# Table inventory: which SQL server holds which table, so `python3 main.py --table customer`
+# works WITHOUT --region (and --region still works whenever you want to force a server).
+#   python3 main.py --refresh-inventory     scan all servers (or one: --region "East US")
+#   python3 main.py --show-inventory        tables per server + age
+#   python3 main.py --find-table customer   which server(s) hold it (migrates nothing)
+# A table missing from the inventory triggers one automatic rescan.
+inventory:
+  file: config/table_inventory.json
+  auto_refresh_on_miss: true
+  max_age_hours: 168            # only warns when older
+  parallel_servers: 4
+  bigquery_sync: true           # also write <project>.<bq_dataset>.table_inventory (best effort)
+  bq_dataset: migration_inventory
+  bq_location: US
+
+# VPN path check (src/config/network_check.py). The SQL server and the Azure Blob
+# endpoint must resolve to PRIVATE addresses, otherwise the traffic bypasses the VPN
+# tunnel. true = the pipeline refuses to start when they do not (use this on the runner
+# VM / Composer). false = only warn (use this when testing from Cloud Shell).
+# Override without editing this file:  REQUIRE_PRIVATE_PATH=false
+network:
+  require_private: true
+  probe_tcp: true     # --check-network also opens a TCP connection to each SQL endpoint
+
+# How Parquet batches reach GCS.
+#   direct = the runner (inside migration-vpc-global) reads SQL through the VPN tunnel and writes
+#            each batch straight into the region's GCS bucket. Azure Blob and STS are NOT used, so
+#            every byte stays on the private path. Used for the POC.
+#   sts    = upload to Azure Blob, then agentless Storage Transfer Service copies it to GCS
+#            (that copy is over the public internet, not the tunnel).
+transfer:
+  mode: direct
+  # true = ALSO copy each Parquet batch into Azure Blob, only to show the files there. Nothing reads
+  # it back and a Blob failure never fails a run. Needs azure.storage_account and
+  # AZURE_STORAGE_CONNECTION_STRING in .env, and the account must be reachable PRIVATELY
+  # (private endpoint + DNS record) or network.require_private stops the run.
+  mirror_to_blob: true
+  # true (needs mirror_to_blob: true) = Azure Blob is a REQUIRED backup written BEFORE GCS. If the Blob
+  # write fails the batch fails and GCS is untouched. Recover a missing GCS file with:
+  #   python3 verify_blob_vs_gcs.py ... --direction blob-to-gcs --repair
+  blob_first: true
+ 
+azure:
+  container: parquet-backup
+  # storage_account: ststagevipqb   # uncomment and set to YOUR account name when transfer.mirror_to_blob is true
+  # sas_token / connection string are read from .env — never stored here
+  upload:
+    # Large batches (e.g. 20 lakh+ rows) produce large Parquet files;
+    # the SDK's default timeouts are too short for a slow moment on a
+    # constrained network. Raise these if you still see
+    # ('Connection aborted.', TimeoutError(...)) at very large batch sizes.
+    connection_timeout_seconds: 300
+    read_timeout_seconds: 300
+    max_block_size_bytes: 8388608   # 8 MB per block
+    max_concurrency: 4              # blocks uploaded in parallel
+    max_retries: 3
+    retry_backoff_seconds: 5        # doubles each retry: 5s, 10s, 20s
+ 
+gcp:
+  project_id: network-connectivity-511917
+  gcs_bucket: sts-accelerator-landing   # must equal landing_bucket_base in terraform/gcp/regional.tf; bucket names are global, keep unique
+  # Control dataset name. Migrated DATA tables are NOT put directly in
+  # this dataset — each source SQL Server schema gets its own dataset
+  # named after the schema (`dbo` -> `dbo`, `sales` -> `sales`; with a region,
+  # `east_us_dbo`, `east_us_sales` — see
+  # src/bigquery/dataset_naming.py), so the source schema structure
+  # stays visibly separated in BigQuery instead of being flattened.
+  # This name IS used as-is for the shared operational/control
+  # tables (migration_pipeline_logs, migration_checkpoint,
+  # migration_audit, migration_report), which are not schema-scoped.
+  bq_dataset: migrated_data
+ 
+# ONE GCP PROJECT PER AZURE RESOURCE GROUP, created automatically (src/gcp/project_manager.py).
+# enabled: false = everything lands in gcp.project_id as before. When true, each target's resource_group
+# becomes its own project; the bucket and datasets are created inside it:
+#     project   <project_prefix>-<resource group>          e.g. rg-na-eastus   (project_prefix: "" = just the resource group name)
+#     bucket    <project>-<target>                         landing files, parquet/<schema>/<table>/
+#     dataset   <server>_<database>                        e.g. sql_server_01_salesdb   (+ control dataset)
+#     tables    dbo.Orders -> Orders ; sales.Orders -> sales__Orders   (schema dbo is dropped, others get "schema__")
+# Setup once by an admin: scripts/gcp_multi_project_setup.sh  (see MULTI_PROJECT.md). The runner's roles are
+# granted on the FOLDER, so every project created later inherits them - no per-project IAM.
+multi_project:
+  enabled: true
+  folder_id: "15949874007 "                    # numeric folder id from the setup script. "" = no folder (grant per project)
+  billing_account: "01D114-4F11B7-1CCC53 "              # e.g. 012345-ABCDEF-678901   (gcloud billing accounts list)
+  project_prefix: ""               # "" = project id is the resource group name (rg-na-eastus). Set e.g. mig to get mig-rg-na-eastus. Max 30 chars.
+  dataset_layout: server_db        # server_db = one dataset per server+database, schema in the table name (agreed hierarchy)
+                                   # per_schema = original: one dataset per schema (<server>_<db>_<schema>), plain table names
+  runner_service_account: sts-runner-sa@network-connectivity-511917.iam.gserviceaccount.com
+  # grant_roles: [roles/bigquery.jobUser, roles/bigquery.dataEditor, roles/storage.admin]   # only used when folder_id is ""
+  # projects:                      # optional: pick the project id yourself (ids are global; use if the default is taken)
+  #   rg-na-eastus: my-company-na-eastus
+
+extraction:
+  # Every table is paged by its primary key (keyset pagination), NOT by
+  # partitioning on a business column. Each page is written as its own
+  # Parquet file (<table>_part0000.parquet, _part0001.parquet, ...) and
+  # loaded/merged independently, so a failure partway through a table
+  # only has to redo the pages after the last committed checkpoint.
+  batch_size: 25000
+  # true (default) = count the rows to move before starting, so each batch prints a % done and an estimated
+  # time remaining, and the SUCCESS line shows the total time. false = skip that COUNT (only matters on huge tables).
+  estimate_total: true
+  # OPTIONAL. Date-based cutoff: only rows whose `updatedAt` column is
+  # on/before this date (updatedAt <= cutoff_date) are pulled from the
+  # source. Applied to EVERY table this pipeline migrates, regardless
+  # of load_mode ("full" and "incremental" alike) — see
+  # src/pipeline/table_pipeline.py. Every source table is expected to
+  # have an `updatedAt` column; the filter is applied server-side in
+  # SQL Server alongside the usual keyset (PK) pagination, so it
+  # doesn't disturb resumability.
+  # Accepts "YYYY-MM-DD" or a full ISO timestamp. Leave null (or delete
+  # this line) to disable the filter and extract every row.
+  cutoff_date: null
+ 
+metadata:
+  # Table names for the operational tables this pipeline maintains in
+  # BigQuery itself (created automatically if they don't exist — see
+  # src/bigquery/bq_control_tables.py):
+  log_table: migration_pipeline_logs        # raw per-stage event log, as a queryable table
+  checkpoint_table: migration_checkpoint    # last committed PK per table, used to resume failed/partial runs
+  audit_table: migration_audit              # one row per table per run — final outcome / row counts
+  report_table: migration_report            # one row per table — latest status + live row count (see src/reporting)
+ 
+overrides_file: config/tables_override.yaml
+ 
+# OPTIONAL. Where src/planner/table_planner.py writes its auto-generated,
+# read-only snapshot of the current dynamic table plan (name, primary key,
+# load_mode) every time it runs. Purely informational —
+# never read back in — so it's always safe to delete or leave unset
+# (defaults to config/tables.yaml).
+tables_snapshot_file: config/tables.yaml
+ 

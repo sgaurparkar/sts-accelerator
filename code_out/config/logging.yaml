@@ -1,0 +1,21 @@
+# Controls how the metadata/reporting modules behave.
+
+# Raw per-stage-event logs are the pipeline's audit trail, so they must
+# live somewhere durable and shared across every Composer worker — a
+# local path does NOT survive across workers/task retries, which is why
+# logs used to silently go missing. Leave this null to default to
+# gcs://<gcp.gcs_bucket from settings.yaml>/pipeline_logs/raw ; set it
+# explicitly only to point somewhere else.
+raw_log_path: null
+
+# In addition to the raw GCS log, every event is also written into the
+# BigQuery table named in settings.yaml (metadata.log_table) so logs can
+# be queried with SQL instead of grepping JSON files. Set to false only
+# for local/offline testing without BigQuery access.
+write_logs_to_bigquery: true
+
+# Where the local JSON snapshot of the tablewise status report is
+# written (src/reporting/report_generator.py). The same report also
+# always gets written as a real BigQuery table — see
+# settings.yaml -> metadata.report_table (default: migration_report).
+report_output_path: logs/reports
