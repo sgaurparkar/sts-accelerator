@@ -1,0 +1,9 @@
+-- Probe 019: BEGIN/COMMIT TRANSACTION
+CREATE PROCEDURE dbo.probe_019_transaction_basic
+AS
+BEGIN
+    BEGIN TRANSACTION;
+    UPDATE dbo.T SET Name = 'x' WHERE Id = 1;
+    COMMIT TRANSACTION;
+END
+GO

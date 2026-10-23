@@ -1,0 +1,8 @@
+-- Probe 124: ROWVERSION / TIMESTAMP
+CREATE PROCEDURE dbo.probe_124_rowversion
+AS
+BEGIN
+    CREATE TABLE #rv (Id INT, Ver ROWVERSION);
+    SELECT * FROM #rv;
+END
+GO

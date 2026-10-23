@@ -1,0 +1,7 @@
+-- Probe 021: DB_NAME()
+CREATE PROCEDURE dbo.probe_021_db_name
+AS
+BEGIN
+    SELECT DB_NAME() AS d;
+END
+GO

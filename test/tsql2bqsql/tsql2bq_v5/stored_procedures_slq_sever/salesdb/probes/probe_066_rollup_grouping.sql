@@ -1,0 +1,7 @@
+-- Probe 066: GROUP BY ROLLUP + GROUPING_ID()
+CREATE PROCEDURE dbo.probe_066_rollup_grouping
+AS
+BEGIN
+    SELECT Name, SUM(Amount) AS s, GROUPING_ID(Name) AS g FROM dbo.T GROUP BY ROLLUP(Name);
+END
+GO

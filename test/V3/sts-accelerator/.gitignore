@@ -1,0 +1,25 @@
+# Virtual env
+venv/
+
+# Environment files
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Generated data
+data/
+
+# Logs
+logs/
+
+# Zip files
+*.zip
+
+# Generated plan snapshots
+logs/plans/
+config/tables_override.yaml
+config/run_spec.yaml
+data/
+output/

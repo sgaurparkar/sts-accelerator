@@ -1,0 +1,7 @@
+-- Probe 024: @@SPID / @@SERVERNAME / @@VERSION
+CREATE PROCEDURE dbo.probe_024_server_vars
+AS
+BEGIN
+    SELECT @@SPID AS a, @@SERVERNAME AS b, @@VERSION AS c;
+END
+GO

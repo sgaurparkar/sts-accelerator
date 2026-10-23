@@ -1,0 +1,8 @@
+-- Probe 122: HIERARCHYID
+CREATE PROCEDURE dbo.probe_122_hierarchyid
+AS
+BEGIN
+    DECLARE @h HIERARCHYID;
+    SELECT @h AS h;
+END
+GO

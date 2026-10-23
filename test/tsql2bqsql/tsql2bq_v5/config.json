@@ -1,0 +1,26 @@
+{
+  "_comment": "project / dataset mapping + conversion options. Keys starting with _ are ignored.",
+  "project": "resource1",
+  "default_dataset": "sql_server_centralasia_salesdb",
+  "dataset_map": {
+    "salesdb": "sql_server_centralasia_salesdb",
+    "hrdb": "sql_server_us_hrdb"
+  },
+  "param_prefix": "p_",
+  "var_prefix": "v_",
+  "temp_prefix": "tmp_",
+  "schema_mode": "prefix",
+  "keep_print": false,
+  "datetime_mode": "datetime",
+  "out_param_mode": "INOUT",
+  "bit_columns": [
+    "IsActive",
+    "Reviewed"
+  ],
+  "column_types": {},
+  "case_sensitivity": "warn",
+  "_return_status_mode": "drop (default) | out_param: keep RETURN <n> in an extra OUT return_status INT64 parameter",
+  "return_status_mode": "drop",
+  "_table_types": "user-defined table types for TVPs, e.g. {\"dbo.ItemList\": \"Id INT64, Name STRING\"}; CREATE TYPE ... AS TABLE files in the input folder are read automatically",
+  "table_types": {}
+}

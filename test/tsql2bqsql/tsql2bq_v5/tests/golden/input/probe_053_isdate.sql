@@ -1,0 +1,7 @@
+-- Probe 053: ISDATE()
+CREATE PROCEDURE dbo.probe_053_isdate
+AS
+BEGIN
+    SELECT ISDATE(Name) AS d FROM dbo.T;
+END
+GO

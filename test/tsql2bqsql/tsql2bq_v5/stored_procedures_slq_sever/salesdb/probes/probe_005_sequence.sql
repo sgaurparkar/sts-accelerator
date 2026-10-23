@@ -1,0 +1,7 @@
+-- Probe 005: NEXT VALUE FOR (SEQUENCE)
+CREATE PROCEDURE dbo.probe_005_sequence
+AS
+BEGIN
+    SELECT NEXT VALUE FOR dbo.Seq1 AS n;
+END
+GO

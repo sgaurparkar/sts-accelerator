@@ -1,0 +1,8 @@
+-- Probe 018: SET XACT_ABORT ON
+CREATE PROCEDURE dbo.probe_018_xact_abort
+AS
+BEGIN
+    SET XACT_ABORT ON;
+    SELECT 1 AS a;
+END
+GO

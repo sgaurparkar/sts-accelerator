@@ -1,0 +1,8 @@
+# One table pattern per line (use with --tables-file). Same syntax as --tables:
+#   table | schema.table | wildcards | database/schema.table | server/database/schema.table
+dbo.Orders
+dbo.Customers
+sales.*
+HRDB/dbo.Employees
+sqlserver3/FinanceDB/dbo.Transactions
+[dbo].[Order Details]

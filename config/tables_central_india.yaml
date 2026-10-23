@@ -3,31 +3,61 @@ _generated_by: "src/planner/table_planner.py \u2014 rewritten on every run, do n
 region: Central India
 tables:
 - schema: dbo
-  name: dataset-06-10
-  primary_key:
-  - id
-  synthetic_key: false
-  load_mode: full
-- schema: dbo
-  name: dummy_dataset_100000--06-10
-  primary_key:
-  - id
-  synthetic_key: false
-  load_mode: full
-- schema: dbo
-  name: India_Cities_LatLng
+  name: audio_features
   primary_key:
   - source_row_id
   synthetic_key: true
   load_mode: full
 - schema: dbo
-  name: indian airlines
+  name: bedtime_screentime_sleep_debt
   primary_key:
-  - column1
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: dbo
+  name: chart_longevity_panel
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: dbo
+  name: crime_incidents_messy_updatedAt
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: dbo
+  name: DR1IFF_L
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: dbo
+  name: DR1IFF_L_with_pk
+  primary_key:
+  - ROW_ID
   synthetic_key: false
   load_mode: full
 - schema: dbo
-  name: test1
+  name: dummy
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full
+- schema: dbo
+  name: global_freelancers_raw_selected_columns_updatedAt
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: dbo
+  name: marginal_value
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: dbo
+  name: Table_01
   primary_key:
   - id
   synthetic_key: false
@@ -39,13 +69,55 @@ tables:
   synthetic_key: false
   load_mode: full
 - schema: dbo
-  name: transactions_all
+  name: test5
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full
+- schema: dbo
+  name: trx_extra_10k_updatedAt
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: dbo
+  name: viral_videos
+  primary_key:
+  - video_id
+  synthetic_key: false
+  load_mode: full
+- schema: jk
+  name: blocks
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: jk
+  name: gate_diagnostics
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: jk
+  name: ntl_extra_passages_claude
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: jk
+  name: Social_media_impact_on_life
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: jk
+  name: Zomato Restaurant Dataset
   primary_key:
   - source_row_id
   synthetic_key: true
   load_mode: full
 - schema: sales
-  name: dataset02--06-10
+  name: test11
   primary_key:
   - id
   synthetic_key: false

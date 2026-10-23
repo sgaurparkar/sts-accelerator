@@ -1,0 +1,1834 @@
+[
+  {
+    "source": "salesdb/probes/probe_001_scope_identity.sql",
+    "procedure": "dbo.probe_001_scope_identity",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_001_scope_identity",
+    "output_file": "salesdb/probes/probe_001_scope_identity.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "SCOPE_IDENTITY: no identity columns in BigQuery; generate keys explicitly (e.g. GENERATE_UUID())",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_002_at_identity.sql",
+    "procedure": "dbo.probe_002_at_identity",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_002_at_identity",
+    "output_file": "salesdb/probes/probe_002_at_identity.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "@@IDENTITY: no identity columns in BigQuery",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_003_ident_current.sql",
+    "procedure": "dbo.probe_003_ident_current",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_003_ident_current",
+    "output_file": "salesdb/probes/probe_003_ident_current.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "IDENT_CURRENT: no identity columns in BigQuery",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_004_identity_column.sql",
+    "procedure": "dbo.probe_004_identity_column",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_004_identity_column",
+    "output_file": "salesdb/probes/probe_004_identity_column.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "IDENTITY on column Id dropped; BigQuery has no identity columns",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_005_sequence.sql",
+    "procedure": "dbo.probe_005_sequence",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_005_sequence",
+    "output_file": "salesdb/probes/probe_005_sequence.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "NEXT VALUE FOR <sequence>: BigQuery has no sequences; use GENERATE_UUID() or ROW_NUMBER() + MAX(existing key)",
+        "snippet": "SELECT NEXT VALUE FOR dbo.Seq1 AS n"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_006_newid.sql",
+    "procedure": "dbo.probe_006_newid",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_006_newid",
+    "output_file": "salesdb/probes/probe_006_newid.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_007_error_number.sql",
+    "procedure": "dbo.probe_007_error_number",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_007_error_number",
+    "output_file": "salesdb/probes/probe_007_error_number.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "ERROR_NUMBER() has no BigQuery equivalent: returns NULL (the error text is in @@error.message, location in @@error.stack_trace)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_008_error_sev_state.sql",
+    "procedure": "dbo.probe_008_error_sev_state",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_008_error_sev_state",
+    "output_file": "salesdb/probes/probe_008_error_sev_state.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "ERROR_SEVERITY() has no BigQuery equivalent: returns NULL (the error text is in @@error.message, location in @@error.stack_trace)",
+        "snippet": ""
+      },
+      {
+        "level": "info",
+        "message": "ERROR_STATE() has no BigQuery equivalent: returns NULL (the error text is in @@error.message, location in @@error.stack_trace)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_009_error_line_proc.sql",
+    "procedure": "dbo.probe_009_error_line_proc",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_009_error_line_proc",
+    "output_file": "salesdb/probes/probe_009_error_line_proc.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "ERROR_LINE() -> @@error.stack_trace[SAFE_OFFSET(0)].line (a line number of the BigQuery script, not of the original T-SQL)",
+        "snippet": ""
+      },
+      {
+        "level": "info",
+        "message": "ERROR_PROCEDURE() replaced by the procedure name 'probe_009_error_line_proc' (BigQuery has no equivalent; if the error came from a called procedure, the call stack is in @@error.stack_trace)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_010_error_message.sql",
+    "procedure": "dbo.probe_010_error_message",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_010_error_message",
+    "output_file": "salesdb/probes/probe_010_error_message.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_011_at_error.sql",
+    "procedure": "dbo.probe_011_at_error",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_011_at_error",
+    "output_file": "salesdb/probes/probe_011_at_error.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "IF @@ERROR ... after a statement converted to BEGIN ... EXCEPTION WHEN ERROR THEN ... END (the error number is not available; @@error.message has the text)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_012_raiserror.sql",
+    "procedure": "dbo.probe_012_raiserror",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_012_raiserror",
+    "output_file": "salesdb/probes/probe_012_raiserror.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "RAISERROR outside TRY: T-SQL CONTINUES with the next statement, BigQuery RAISE stops the procedure (usually what was intended - check if code follows that should still run)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_013_throw_number.sql",
+    "procedure": "dbo.probe_013_throw_number",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_013_throw_number",
+    "output_file": "salesdb/probes/probe_013_throw_number.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_014_xact_state.sql",
+    "procedure": "dbo.probe_014_xact_state",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_014_xact_state",
+    "output_file": "salesdb/probes/probe_014_xact_state.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "@@TRANCOUNT / XACT_STATE() emulated with variable v_in_transaction (TRUE between BEGIN TRANSACTION and COMMIT/ROLLBACK of this procedure)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_015_trancount.sql",
+    "procedure": "dbo.probe_015_trancount",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_015_trancount",
+    "output_file": "salesdb/probes/probe_015_trancount.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "@@TRANCOUNT / XACT_STATE() emulated with variable v_in_transaction (TRUE between BEGIN TRANSACTION and COMMIT/ROLLBACK of this procedure)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_016_save_transaction.sql",
+    "procedure": "dbo.probe_016_save_transaction",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_016_save_transaction",
+    "output_file": "salesdb/probes/probe_016_save_transaction.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "savepoints are not supported in BigQuery",
+        "snippet": "SAVE TRANSACTION sp1"
+      },
+      {
+        "level": "review",
+        "message": "ROLLBACK to a savepoint: BigQuery has no savepoints - this would roll back the WHOLE transaction",
+        "snippet": "ROLLBACK TRANSACTION sp1"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_017_nested_tran.sql",
+    "procedure": "dbo.probe_017_nested_tran",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_017_nested_tran",
+    "output_file": "salesdb/probes/probe_017_nested_tran.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "nested BEGIN TRANSACTION removed: T-SQL only increments @@TRANCOUNT, BigQuery does not allow nested transactions (the matching inner COMMIT is removed too)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_018_xact_abort.sql",
+    "procedure": "dbo.probe_018_xact_abort",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_018_xact_abort",
+    "output_file": "salesdb/probes/probe_018_xact_abort.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_019_transaction_basic.sql",
+    "procedure": "dbo.probe_019_transaction_basic",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_019_transaction_basic",
+    "output_file": "salesdb/probes/probe_019_transaction_basic.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_020_object_id.sql",
+    "procedure": "dbo.probe_020_object_id",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_020_object_id",
+    "output_file": "salesdb/probes/probe_020_object_id.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "OBJECT_ID('dbo.T') IS [NOT] NULL -> [NOT] EXISTS on sql_server_centralasia_salesdb.INFORMATION_SCHEMA.TABLES",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_021_db_name.sql",
+    "procedure": "dbo.probe_021_db_name",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_021_db_name",
+    "output_file": "salesdb/probes/probe_021_db_name.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "DB_NAME() replaced by the target dataset name 'sql_server_centralasia_salesdb'",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_022_host_app.sql",
+    "procedure": "dbo.probe_022_host_app",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_022_host_app",
+    "output_file": "salesdb/probes/probe_022_host_app.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "HOST_NAME: no equivalent",
+        "snippet": ""
+      },
+      {
+        "level": "review",
+        "message": "APP_NAME: no equivalent",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_023_user_fn.sql",
+    "procedure": "dbo.probe_023_user_fn",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_023_user_fn",
+    "output_file": "salesdb/probes/probe_023_user_fn.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "SUSER_SNAME() / SYSTEM_USER / CURRENT_USER -> SESSION_USER(): returns the Google account e-mail (user or service account), not the SQL Server login",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_024_server_vars.sql",
+    "procedure": "dbo.probe_024_server_vars",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_024_server_vars",
+    "output_file": "salesdb/probes/probe_024_server_vars.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "@@SPID: no equivalent",
+        "snippet": ""
+      },
+      {
+        "level": "review",
+        "message": "@@SERVERNAME: no equivalent",
+        "snippet": ""
+      },
+      {
+        "level": "review",
+        "message": "@@VERSION: no equivalent",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_025_rowcount.sql",
+    "procedure": "dbo.probe_025_rowcount",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_025_rowcount",
+    "output_file": "salesdb/probes/probe_025_rowcount.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_026_session_context.sql",
+    "procedure": "dbo.probe_026_session_context",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_026_session_context",
+    "output_file": "salesdb/probes/probe_026_session_context.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "SESSION_CONTEXT() does not exist in BigQuery: no equivalent",
+        "snippet": "SESSION_CONTEXT('k')"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_027_set_options.sql",
+    "procedure": "dbo.probe_027_set_options",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_027_set_options",
+    "output_file": "salesdb/probes/probe_027_set_options.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_028_stuff.sql",
+    "procedure": "dbo.probe_028_stuff",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_028_stuff",
+    "output_file": "salesdb/probes/probe_028_stuff.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "STUFF(s, start, len, rep) -> SUBSTR(s, 1, start-1) || rep || SUBSTR(s, start+len) (T-SQL returns NULL when start is 0 or beyond the string; this version does not)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_029_quotename.sql",
+    "procedure": "dbo.probe_029_quotename",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_029_quotename",
+    "output_file": "salesdb/probes/probe_029_quotename.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "QUOTENAME: no equivalent",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_030_parsename.sql",
+    "procedure": "dbo.probe_030_parsename",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_030_parsename",
+    "output_file": "salesdb/probes/probe_030_parsename.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_031_formatmessage.sql",
+    "procedure": "dbo.probe_031_formatmessage",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_031_formatmessage",
+    "output_file": "salesdb/probes/probe_031_formatmessage.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "FORMATMESSAGE -> FORMAT (printf-style; %i/%u became %d)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_032_patindex.sql",
+    "procedure": "dbo.probe_032_patindex",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_032_patindex",
+    "output_file": "salesdb/probes/probe_032_patindex.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "PATINDEX('%b%', x) -> REGEXP_INSTR(x, '(?s)b') (case-sensitive; SQL Server's default collation is not - set case_sensitivity 'lower' to add (?i))",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_033_string_split.sql",
+    "procedure": "dbo.probe_033_string_split",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_033_string_split",
+    "output_file": "salesdb/probes/probe_033_string_split.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "STRING_SPLIT(s, sep) -> UNNEST(SPLIT(s, sep)) AS value (same rows; the order of the values is not guaranteed in either engine unless enable_ordinal / WITH OFFSET is used)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_034_difference.sql",
+    "procedure": "dbo.probe_034_difference",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_034_difference",
+    "output_file": "salesdb/probes/probe_034_difference.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "DIFFERENCE(a, b) -> position-by-position SOUNDEX comparison (0-4); T-SQL's algorithm can score differently for some inputs",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_035_like_class.sql",
+    "procedure": "dbo.probe_035_like_class",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_035_like_class",
+    "output_file": "salesdb/probes/probe_035_like_class.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "LIKE '[a-c]%' uses T-SQL character classes, converted to REGEXP_CONTAINS",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_036_len_charindex.sql",
+    "procedure": "dbo.probe_036_len_charindex",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_036_len_charindex",
+    "output_file": "salesdb/probes/probe_036_len_charindex.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "CHARINDEX/INSTR: SQL Server's default collation finds 'A' in 'abc', BigQuery INSTR is case-sensitive (case_sensitivity 'lower' wraps both sides in LOWER())",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_037_replicate_space.sql",
+    "procedure": "dbo.probe_037_replicate_space",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_037_replicate_space",
+    "output_file": "salesdb/probes/probe_037_replicate_space.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_038_datalength.sql",
+    "procedure": "dbo.probe_038_datalength",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_038_datalength",
+    "output_file": "salesdb/probes/probe_038_datalength.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "DATALENGTH -> BYTE_LENGTH (T-SQL counts 2 bytes per NVARCHAR character, BigQuery counts UTF-8 bytes)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_039_format_fn.sql",
+    "procedure": "dbo.probe_039_format_fn",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_039_format_fn",
+    "output_file": "salesdb/probes/probe_039_format_fn.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_040_string_agg.sql",
+    "procedure": "dbo.probe_040_string_agg",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_040_string_agg",
+    "output_file": "salesdb/probes/probe_040_string_agg.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_041_string_agg_wg.sql",
+    "procedure": "dbo.probe_041_string_agg_wg",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_041_string_agg_wg",
+    "output_file": "salesdb/probes/probe_041_string_agg_wg.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_042_char_unicode.sql",
+    "procedure": "dbo.probe_042_char_unicode",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_042_char_unicode",
+    "output_file": "salesdb/probes/probe_042_char_unicode.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_043_collate.sql",
+    "procedure": "dbo.probe_043_collate",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_043_collate",
+    "output_file": "salesdb/probes/probe_043_collate.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_044_concat_isnull.sql",
+    "procedure": "dbo.probe_044_concat_isnull",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_044_concat_isnull",
+    "output_file": "salesdb/probes/probe_044_concat_isnull.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_045_trim_fn.sql",
+    "procedure": "dbo.probe_045_trim_fn",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_045_trim_fn",
+    "output_file": "salesdb/probes/probe_045_trim_fn.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_046_case_insensitive.sql",
+    "procedure": "dbo.probe_046_case_insensitive",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_046_case_insensitive",
+    "output_file": "salesdb/probes/probe_046_case_insensitive.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "string column Name is compared with a text literal: SQL Server's default collation is case-insensitive but BigQuery is case-sensitive, so 'NEW' will not match 'new'. Confirm the data's casing is consistent, or set config 'case_sensitivity': 'lower' to wrap both sides in LOWER()",
+        "snippet": "Name"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_047_year_month_day.sql",
+    "procedure": "dbo.probe_047_year_month_day",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_047_year_month_day",
+    "output_file": "salesdb/probes/probe_047_year_month_day.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_048_datepart_name.sql",
+    "procedure": "dbo.probe_048_datepart_name",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_048_datepart_name",
+    "output_file": "salesdb/probes/probe_048_datepart_name.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_049_dateadd_diff.sql",
+    "procedure": "dbo.probe_049_dateadd_diff",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_049_dateadd_diff",
+    "output_file": "salesdb/probes/probe_049_dateadd_diff.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "DATEADD on an expression of unknown type: DATE_ADD only accepts DATE - if it is DATETIME/TIMESTAMP use DATETIME_ADD/TIMESTAMP_ADD (or list the column in config 'column_types')",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_050_eomonth.sql",
+    "procedure": "dbo.probe_050_eomonth",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_050_eomonth",
+    "output_file": "salesdb/probes/probe_050_eomonth.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_051_at_time_zone.sql",
+    "procedure": "dbo.probe_051_at_time_zone",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_051_at_time_zone",
+    "output_file": "salesdb/probes/probe_051_at_time_zone.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "x AT TIME ZONE z -> TIMESTAMP(x, z), assuming x is a DATETIME (wall-clock time in z)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_052_sysdatetime.sql",
+    "procedure": "dbo.probe_052_sysdatetime",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_052_sysdatetime",
+    "output_file": "salesdb/probes/probe_052_sysdatetime.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_053_isdate.sql",
+    "procedure": "dbo.probe_053_isdate",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_053_isdate",
+    "output_file": "salesdb/probes/probe_053_isdate.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "ISDATE(x) -> IF(SAFE_CAST(x AS DATETIME/DATE) IS NOT NULL, 1, 0): only ISO strings count as dates in BigQuery ('Jan 1 2020', '01/02/2020' return 0 here, 1 in T-SQL)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_054_convert_style.sql",
+    "procedure": "dbo.probe_054_convert_style",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_054_convert_style",
+    "output_file": "salesdb/probes/probe_054_convert_style.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_055_try_convert.sql",
+    "procedure": "dbo.probe_055_try_convert",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_055_try_convert",
+    "output_file": "salesdb/probes/probe_055_try_convert.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_056_try_parse.sql",
+    "procedure": "dbo.probe_056_try_parse",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_056_try_parse",
+    "output_file": "salesdb/probes/probe_056_try_parse.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "TRY_PARSE(x AS DATE) -> SAFE_CAST: BigQuery only parses ISO formats (YYYY-MM-DD, plain numbers); T-SQL also accepts culture formats ('12/31/2020', '$1,000') - use SAFE.PARSE_DATE('%m/%d/%Y', x) for those",
+        "snippet": "TRY_PARSE(Name AS DATE)"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_057_isnumeric.sql",
+    "procedure": "dbo.probe_057_isnumeric",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_057_isnumeric",
+    "output_file": "salesdb/probes/probe_057_isnumeric.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "ISNUMERIC(x) -> IF(SAFE_CAST(x AS FLOAT64) IS NOT NULL, 1, 0): T-SQL also returns 1 for '$', ',', '.', '-', '1e5d' ... and 0 for 'NaN'/'inf'; check the inputs you expect",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_058_choose_iif.sql",
+    "procedure": "dbo.probe_058_choose_iif",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_058_choose_iif",
+    "output_file": "salesdb/probes/probe_058_choose_iif.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_059_hashbytes.sql",
+    "procedure": "dbo.probe_059_hashbytes",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_059_hashbytes",
+    "output_file": "salesdb/probes/probe_059_hashbytes.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "HASHBYTES: use MD5()/SHA256()/SHA512()",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_060_checksum.sql",
+    "procedure": "dbo.probe_060_checksum",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_060_checksum",
+    "output_file": "salesdb/probes/probe_060_checksum.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "CHECKSUM: use FARM_FINGERPRINT()",
+        "snippet": ""
+      },
+      {
+        "level": "review",
+        "message": "BINARY_CHECKSUM: use FARM_FINGERPRINT()",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_061_rand_seed.sql",
+    "procedure": "dbo.probe_061_rand_seed",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_061_rand_seed",
+    "output_file": "salesdb/probes/probe_061_rand_seed.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "RAND(seed): BigQuery RAND() takes no seed, so the value is not repeatable",
+        "snippet": "RAND(42)"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_062_int_division.sql",
+    "procedure": "dbo.probe_062_int_division",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_062_int_division",
+    "output_file": "salesdb/probes/probe_062_int_division.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_063_modulo_bitwise.sql",
+    "procedure": "dbo.probe_063_modulo_bitwise",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_063_modulo_bitwise",
+    "output_file": "salesdb/probes/probe_063_modulo_bitwise.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_064_stdev_var.sql",
+    "procedure": "dbo.probe_064_stdev_var",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_064_stdev_var",
+    "output_file": "salesdb/probes/probe_064_stdev_var.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_065_percentile_cont.sql",
+    "procedure": "dbo.probe_065_percentile_cont",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_065_percentile_cont",
+    "output_file": "salesdb/probes/probe_065_percentile_cont.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_066_rollup_grouping.sql",
+    "procedure": "dbo.probe_066_rollup_grouping",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_066_rollup_grouping",
+    "output_file": "salesdb/probes/probe_066_rollup_grouping.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_067_top_isnull_getdate.sql",
+    "procedure": "dbo.probe_067_top_isnull_getdate",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_067_top_isnull_getdate",
+    "output_file": "salesdb/probes/probe_067_top_isnull_getdate.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_068_cross_apply.sql",
+    "procedure": "dbo.probe_068_cross_apply",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_068_cross_apply",
+    "output_file": "salesdb/probes/probe_068_cross_apply.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "CROSS APPLY -> CROSS JOIN UNNEST(ARRAY(SELECT AS STRUCT ...)) AS x (correlated; dry-run it - BigQuery rejects correlated subqueries it cannot de-correlate)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_069_outer_apply.sql",
+    "procedure": "dbo.probe_069_outer_apply",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_069_outer_apply",
+    "output_file": "salesdb/probes/probe_069_outer_apply.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "OUTER APPLY -> LEFT JOIN UNNEST(ARRAY(SELECT AS STRUCT ...)) AS x (correlated; dry-run it - BigQuery rejects correlated subqueries it cannot de-correlate)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_070_output_clause.sql",
+    "procedure": "dbo.probe_070_output_clause",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_070_output_clause",
+    "output_file": "salesdb/probes/probe_070_output_clause.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "OUTPUT: OUTPUT clause is not supported",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_071_pivot.sql",
+    "procedure": "dbo.probe_071_pivot",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_071_pivot",
+    "output_file": "salesdb/probes/probe_071_pivot.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "PIVOT: converted to BigQuery PIVOT syntax; compare the result columns once",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_072_unpivot.sql",
+    "procedure": "dbo.probe_072_unpivot",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_072_unpivot",
+    "output_file": "salesdb/probes/probe_072_unpivot.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "UNPIVOT: converted to BigQuery UNPIVOT syntax; compare the result columns once",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_073_top_ties.sql",
+    "procedure": "dbo.probe_073_top_ties",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_073_top_ties",
+    "output_file": "salesdb/probes/probe_073_top_ties.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "TOP n WITH TIES converted to QUALIFY RANK() OVER (ORDER BY ...) <= n",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_074_top_percent.sql",
+    "procedure": "dbo.probe_074_top_percent",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_074_top_percent",
+    "output_file": "salesdb/probes/probe_074_top_percent.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "TOP n PERCENT converted to QUALIFY ROW_NUMBER() OVER (ORDER BY ...) <= CEIL(COUNT(*) OVER () * p / 100)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_075_for_xml_path.sql",
+    "procedure": "dbo.probe_075_for_xml_path",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_075_for_xml_path",
+    "output_file": "salesdb/probes/probe_075_for_xml_path.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "STUFF((SELECT sep + x ... FOR XML PATH('')), 1, n, '') converted to STRING_AGG (note: FOR XML also escaped &, <, > as &amp; &lt; &gt; - STRING_AGG does not)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_076_xml_value.sql",
+    "procedure": "dbo.probe_076_xml_value",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_076_xml_value",
+    "output_file": "salesdb/probes/probe_076_xml_value.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "variable @x: XML mapped to STRING",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_077_for_json.sql",
+    "procedure": "dbo.probe_077_for_json",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_077_for_json",
+    "output_file": "salesdb/probes/probe_077_for_json.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "FOR JSON PATH -> TO_JSON_STRING(ARRAY(SELECT AS STRUCT ...)) - NULL columns appear as \"col\":null in BigQuery but are omitted by FOR JSON (add INCLUDE_NULL_VALUES semantics or strip them if consumers care)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_078_openjson.sql",
+    "procedure": "dbo.probe_078_openjson",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_078_openjson",
+    "output_file": "salesdb/probes/probe_078_openjson.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "OPENJSON: use JSON functions / UNNEST(JSON_QUERY_ARRAY(...))",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_079_json_value.sql",
+    "procedure": "dbo.probe_079_json_value",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_079_json_value",
+    "output_file": "salesdb/probes/probe_079_json_value.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_080_openquery.sql",
+    "procedure": "dbo.probe_080_openquery",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_080_openquery",
+    "output_file": "salesdb/probes/probe_080_openquery.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "OPENQUERY: linked servers not supported",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_081_four_part.sql",
+    "procedure": "dbo.probe_081_four_part",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_081_four_part",
+    "output_file": "salesdb/probes/probe_081_four_part.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "four-part name LinkedSrv.OtherDb.dbo.T: linked servers are not reachable from BigQuery (load the data or use a federated/external table)",
+        "snippet": "LinkedSrv.OtherDb.dbo.T"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_082_nolock.sql",
+    "procedure": "dbo.probe_082_nolock",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_082_nolock",
+    "output_file": "salesdb/probes/probe_082_nolock.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_083_option_recompile.sql",
+    "procedure": "dbo.probe_083_option_recompile",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_083_option_recompile",
+    "output_file": "salesdb/probes/probe_083_option_recompile.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_084_insert_exec.sql",
+    "procedure": "dbo.probe_084_insert_exec",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_084_insert_exec",
+    "output_file": "salesdb/probes/probe_084_insert_exec.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "INSERT ... EXEC proc: BigQuery cannot insert a procedure's result set - let the called procedure write into a TEMP TABLE (temp tables are visible to the caller in the same script) or turn it into a TABLE FUNCTION and INSERT ... SELECT from it",
+        "snippet": "INSERT INTO #r EXEC dbo.usp_Other"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_085_select_into.sql",
+    "procedure": "dbo.probe_085_select_into",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_085_select_into",
+    "output_file": "salesdb/probes/probe_085_select_into.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_086_recursive_cte.sql",
+    "procedure": "dbo.probe_086_recursive_cte",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_086_recursive_cte",
+    "output_file": "salesdb/probes/probe_086_recursive_cte.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "recursive CTE n: WITH RECURSIVE added (BigQuery stops after 500 iterations; T-SQL's default MAXRECURSION is 100, OPTION (MAXRECURSION 0) = no limit)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_087_merge_basic.sql",
+    "procedure": "dbo.probe_087_merge_basic",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_087_merge_basic",
+    "output_file": "salesdb/probes/probe_087_merge_basic.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_088_merge_output.sql",
+    "procedure": "dbo.probe_088_merge_output",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_088_merge_output",
+    "output_file": "salesdb/probes/probe_088_merge_output.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "OUTPUT: OUTPUT clause is not supported",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_089_goto.sql",
+    "procedure": "dbo.probe_089_goto",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_089_goto",
+    "output_file": "salesdb/probes/probe_089_goto.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "label lbl: BigQuery has no GOTO/labels; restructure with IF / LOOP / BREAK",
+        "snippet": "lbl:"
+      },
+      {
+        "level": "review",
+        "message": "GOTO is not supported; rewrite manually",
+        "snippet": "GOTO lbl"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_090_waitfor.sql",
+    "procedure": "dbo.probe_090_waitfor",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_090_waitfor",
+    "output_file": "salesdb/probes/probe_090_waitfor.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "WAITFOR is not supported; rewrite manually",
+        "snippet": "WAITFOR DELAY '00:00:01'"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_091_fulltext.sql",
+    "procedure": "dbo.probe_091_fulltext",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_091_fulltext",
+    "output_file": "salesdb/probes/probe_091_fulltext.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "full-text CONTAINS -> CONTAINS_SUBSTR (case-insensitive SUBSTRING match, not word match: 'cat' also matches 'concatenate'); consider SEARCH()",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_092_table_variable.sql",
+    "procedure": "dbo.probe_092_table_variable",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_092_table_variable",
+    "output_file": "salesdb/probes/probe_092_table_variable.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_093_global_temp.sql",
+    "procedure": "dbo.probe_093_global_temp",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_093_global_temp",
+    "output_file": "salesdb/probes/probe_093_global_temp.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "global temp table ##g becomes a script-local TEMP TABLE: other sessions cannot see it in BigQuery",
+        "snippet": ""
+      },
+      {
+        "level": "info",
+        "message": "global temp table ##g becomes a script-local TEMP TABLE: other sessions cannot see it in BigQuery",
+        "snippet": ""
+      },
+      {
+        "level": "info",
+        "message": "global temp table ##g becomes a script-local TEMP TABLE: other sessions cannot see it in BigQuery",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_094_update_join.sql",
+    "procedure": "dbo.probe_094_update_join",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_094_update_join",
+    "output_file": "salesdb/probes/probe_094_update_join.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "UPDATE ... FROM: BigQuery raises an error if a target row matches more than one source row (T-SQL silently uses one of them) - make sure the joined source is unique on the join key (aggregate it first if needed)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_095_delete_join.sql",
+    "procedure": "dbo.probe_095_delete_join",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_095_delete_join",
+    "output_file": "salesdb/probes/probe_095_delete_join.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_096_update_top.sql",
+    "procedure": "dbo.probe_096_update_top",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_096_update_top",
+    "output_file": "salesdb/probes/probe_096_update_top.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "UPDATE TOP (n) has no BigQuery equivalent: rewrite as UPDATE ... WHERE key IN (SELECT key FROM ... ORDER BY ... LIMIT n)",
+        "snippet": "UPDATE TOP (10) dbo.T SET Name = 'x'"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_097_delete_top.sql",
+    "procedure": "dbo.probe_097_delete_top",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_097_delete_top",
+    "output_file": "salesdb/probes/probe_097_delete_top.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "DELETE TOP (n) has no BigQuery equivalent: rewrite as DELETE ... WHERE key IN (SELECT key FROM ... ORDER BY ... LIMIT n)",
+        "snippet": "DELETE TOP (10) FROM dbo.T WHERE Id > 0"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_098_identity_insert.sql",
+    "procedure": "dbo.probe_098_identity_insert",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_098_identity_insert",
+    "output_file": "salesdb/probes/probe_098_identity_insert.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "SET IDENTITY_INSERT removed (BigQuery has no identity columns; explicit values are always accepted)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_099_cursor_basic.sql",
+    "procedure": "dbo.probe_099_cursor_basic",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_099_cursor_basic",
+    "output_file": "salesdb/probes/probe_099_cursor_basic.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "cursor c converted to FOR loop (BigQuery has no cursors)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_100_cursor_scroll.sql",
+    "procedure": "dbo.probe_100_cursor_scroll",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_100_cursor_scroll",
+    "output_file": "salesdb/probes/probe_100_cursor_scroll.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "cursors are not supported; rewrite as FOR record IN (SELECT ...) DO ... END FOR",
+        "snippet": "DECLARE c CURSOR SCROLL FOR SELECT Id FROM dbo.T"
+      },
+      {
+        "level": "review",
+        "message": "OPEN is not supported; rewrite manually",
+        "snippet": "OPEN c"
+      },
+      {
+        "level": "review",
+        "message": "FETCH is not supported; rewrite manually",
+        "snippet": "FETCH LAST FROM c INTO @i"
+      },
+      {
+        "level": "review",
+        "message": "FETCH is not supported; rewrite manually",
+        "snippet": "FETCH PRIOR FROM c INTO @i"
+      },
+      {
+        "level": "review",
+        "message": "CLOSE is not supported; rewrite manually",
+        "snippet": "CLOSE c"
+      },
+      {
+        "level": "review",
+        "message": "DEALLOCATE is not supported; rewrite manually",
+        "snippet": "DEALLOCATE c"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_101_sp_executesql.sql",
+    "procedure": "dbo.probe_101_sp_executesql",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_101_sp_executesql",
+    "output_file": "salesdb/probes/probe_101_sp_executesql.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "sp_executesql converted to EXECUTE IMMEDIATE ... USING; check the result",
+        "snippet": "EXEC sp_executesql N'SELECT * FROM dbo.T WHERE Id = @id', N'@id INT', @id = 1"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_102_exec_concat.sql",
+    "procedure": "dbo.probe_102_exec_concat",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_102_exec_concat",
+    "output_file": "salesdb/probes/probe_102_exec_concat.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "dynamic SQL: the string being executed is still T-SQL and must be converted too",
+        "snippet": "EXEC (@sql)"
+      },
+      {
+        "level": "review",
+        "message": "SECURITY: dynamic SQL is built by string concatenation (@sql). If any part comes from a parameter or table data this is an SQL injection risk: pass values with EXECUTE IMMEDIATE ... USING, and allow-list identifiers (table / column names) instead of concatenating them",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_103_dyn_const_var.sql",
+    "procedure": "dbo.probe_103_dyn_const_var",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_103_dyn_const_var",
+    "output_file": "salesdb/probes/probe_103_dyn_const_var.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "sp_executesql converted to EXECUTE IMMEDIATE ... USING; check the result",
+        "snippet": "EXEC sp_executesql @sql, N'@id INT', @id = 1"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_104_print.sql",
+    "procedure": "dbo.probe_104_print",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_104_print",
+    "output_file": "salesdb/probes/probe_104_print.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_105_while_break.sql",
+    "procedure": "dbo.probe_105_while_break",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_105_while_break",
+    "output_file": "salesdb/probes/probe_105_while_break.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_106_if_exists.sql",
+    "procedure": "dbo.probe_106_if_exists",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_106_if_exists",
+    "output_file": "salesdb/probes/probe_106_if_exists.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_107_case_expr.sql",
+    "procedure": "dbo.probe_107_case_expr",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_107_case_expr",
+    "output_file": "salesdb/probes/probe_107_case_expr.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_108_declare_mid.sql",
+    "procedure": "dbo.probe_108_declare_mid",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_108_declare_mid",
+    "output_file": "salesdb/probes/probe_108_declare_mid.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_109_select_assign.sql",
+    "procedure": "dbo.probe_109_select_assign",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_109_select_assign",
+    "output_file": "salesdb/probes/probe_109_select_assign.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "SELECT @var = ... FROM ... assigns the LAST row in T-SQL; BigQuery version uses LIMIT 1 (add ORDER BY if the row matters). If NO row matches, T-SQL keeps the old value but BigQuery sets the variable to NULL",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_110_exec_output.sql",
+    "procedure": "dbo.probe_110_exec_output",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_110_exec_output",
+    "output_file": "salesdb/probes/probe_110_exec_output.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "named arguments in call to usp_Other: callee not found, check argument order",
+        "snippet": "EXEC dbo.usp_Other @In = 1, @Out = @r OUTPUT"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_111_default_params.sql",
+    "procedure": "dbo.probe_111_default_params",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_111_default_params",
+    "output_file": "salesdb/probes/probe_111_default_params.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_112_return_code.sql",
+    "procedure": "dbo.probe_112_return_code",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_112_return_code",
+    "output_file": "salesdb/probes/probe_112_return_code.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "RETURN value is discarded (BigQuery procedures return no status code; set config 'return_status_mode': 'out_param' to keep it in an OUT parameter)",
+        "snippet": "RETURN 5"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_113_multi_resultset.sql",
+    "procedure": "dbo.probe_113_multi_resultset",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_113_multi_resultset",
+    "output_file": "salesdb/probes/probe_113_multi_resultset.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_114_tvp.sql",
+    "procedure": "dbo.probe_114_tvp",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_114_tvp",
+    "output_file": "salesdb/probes/probe_114_tvp.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "table-valued parameter @items: type dbo.ItemList is unknown - add its CREATE TYPE ... AS TABLE file to the input folder or config 'table_types' so it becomes ARRAY<STRUCT<...>>",
+        "snippet": "dbo.ItemList"
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_115_with_options.sql",
+    "procedure": "dbo.probe_115_with_options",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_115_with_options",
+    "output_file": "salesdb/probes/probe_115_with_options.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "procedure options dropped: WITH EXECUTE AS OWNER, RECOMPILE",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_116_sp_rename.sql",
+    "procedure": "dbo.probe_116_sp_rename",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_116_sp_rename",
+    "output_file": "salesdb/probes/probe_116_sp_rename.sql",
+    "status": "ok",
+    "warnings": [
+      {
+        "level": "info",
+        "message": "sp_rename (COLUMN) -> ALTER TABLE ... RENAME COLUMN (DDL: not allowed inside a transaction)",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_117_output_param.sql",
+    "procedure": "dbo.probe_117_output_param",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_117_output_param",
+    "output_file": "salesdb/probes/probe_117_output_param.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_118_bit_compare.sql",
+    "procedure": "dbo.probe_118_bit_compare",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_118_bit_compare",
+    "output_file": "salesdb/probes/probe_118_bit_compare.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_119_money.sql",
+    "procedure": "dbo.probe_119_money",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_119_money",
+    "output_file": "salesdb/probes/probe_119_money.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_120_guid_type.sql",
+    "procedure": "dbo.probe_120_guid_type",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_120_guid_type",
+    "output_file": "salesdb/probes/probe_120_guid_type.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_121_xml_type.sql",
+    "procedure": "dbo.probe_121_xml_type",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_121_xml_type",
+    "output_file": "salesdb/probes/probe_121_xml_type.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "variable @x: XML mapped to STRING",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_122_hierarchyid.sql",
+    "procedure": "dbo.probe_122_hierarchyid",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_122_hierarchyid",
+    "output_file": "salesdb/probes/probe_122_hierarchyid.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "variable @h: user-defined or unsupported type 'HIERARCHYID' mapped to STRING",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_123_sql_variant.sql",
+    "procedure": "dbo.probe_123_sql_variant",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_123_sql_variant",
+    "output_file": "salesdb/probes/probe_123_sql_variant.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "variable @v: user-defined or unsupported type 'SQL_VARIANT' mapped to STRING",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_124_rowversion.sql",
+    "procedure": "dbo.probe_124_rowversion",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_124_rowversion",
+    "output_file": "salesdb/probes/probe_124_rowversion.sql",
+    "status": "review",
+    "warnings": [
+      {
+        "level": "review",
+        "message": "column Ver: rowversion has no equivalent; mapped to BYTES",
+        "snippet": ""
+      }
+    ],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_125_geography.sql",
+    "procedure": "dbo.probe_125_geography",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_125_geography",
+    "output_file": "salesdb/probes/probe_125_geography.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_126_datetime_types.sql",
+    "procedure": "dbo.probe_126_datetime_types",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_126_datetime_types",
+    "output_file": "salesdb/probes/probe_126_datetime_types.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_127_binary_types.sql",
+    "procedure": "dbo.probe_127_binary_types",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_127_binary_types",
+    "output_file": "salesdb/probes/probe_127_binary_types.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_128_nvarchar_max.sql",
+    "procedure": "dbo.probe_128_nvarchar_max",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_128_nvarchar_max",
+    "output_file": "salesdb/probes/probe_128_nvarchar_max.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  },
+  {
+    "source": "salesdb/probes/probe_129_temp_table.sql",
+    "procedure": "dbo.probe_129_temp_table",
+    "target": "resource1.sql_server_centralasia_salesdb.probe_129_temp_table",
+    "output_file": "salesdb/probes/probe_129_temp_table.sql",
+    "status": "ok",
+    "warnings": [],
+    "error": "",
+    "kind": "procedure"
+  }
+]

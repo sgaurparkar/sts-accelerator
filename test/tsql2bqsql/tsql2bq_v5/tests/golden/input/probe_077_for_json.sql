@@ -1,0 +1,7 @@
+-- Probe 077: FOR JSON PATH
+CREATE PROCEDURE dbo.probe_077_for_json
+AS
+BEGIN
+    SELECT Id, Name FROM dbo.T FOR JSON PATH;
+END
+GO

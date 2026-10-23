@@ -1,0 +1,7 @@
+-- Probe 042: CHAR() / NCHAR() / UNICODE()
+CREATE PROCEDURE dbo.probe_042_char_unicode
+AS
+BEGIN
+    SELECT CHAR(65) AS c, UNICODE('A') AS u, NCHAR(66) AS n;
+END
+GO

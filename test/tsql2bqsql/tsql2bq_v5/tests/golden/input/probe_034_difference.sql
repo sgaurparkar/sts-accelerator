@@ -1,0 +1,7 @@
+-- Probe 034: DIFFERENCE()
+CREATE PROCEDURE dbo.probe_034_difference
+AS
+BEGIN
+    SELECT DIFFERENCE('a', 'b') AS d;
+END
+GO

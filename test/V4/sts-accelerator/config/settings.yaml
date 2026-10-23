@@ -1,0 +1,257 @@
+# Central configuration for the accelerator: tables (data) + raw views / stored procedures.
+#
+# Nothing about WHICH databases or tables exist is hand-typed:
+#   * Azure hierarchy (resource group -> SQL server -> database, server location)
+#     is discovered from Azure Resource Manager                    (azure_topology)
+#   * schemas, tables, columns, keys, row estimates come from each database's catalog
+#   * every GCP name is DERIVED from the Azure hierarchy           (gcp)
+#
+#       Azure Resource Group  ResourceGroup1         -> GCP project   resourcegroup1
+#       SQL Server + Database SQLServer1 / SalesDB   -> BQ dataset    sqlserver1_salesdb
+#       Azure location        Central India          -> GCP location  asia-south1
+#       Azure location        East US / any US       -> GCP location  closest US region (or "US")
+#
+# WHAT to migrate and HOW (full / incremental / partial) is chosen per run on the
+# command line or in a run spec — see README.md.  Secrets go in .env — never here.
+
+# ---------------------------------------------------------------------------------------
+# WHERE the Azure hierarchy comes from
+# ---------------------------------------------------------------------------------------
+# azure_topology:
+#   # arm       = live from Azure Resource Manager (Reader on the subscription; credentials via
+#   #             DefaultAzureCredential: AZURE_CLIENT_ID/AZURE_TENANT_ID/AZURE_CLIENT_SECRET,
+#   #             managed identity, or `az login`)
+#   # inventory = the `inventory:` list below (no ARM access needed)
+#   source: arm
+#   subscription_ids: []            # empty -> AZURE_SUBSCRIPTION_ID (comma-separated for several)
+
+#   # Permanent scope (case-insensitive, wildcards like "rg-prod-*"). CLI/job filters narrow further.
+#   resource_groups: []
+#   servers: []
+#   databases: []
+#   azure_locations: []
+#   exclude_resource_groups: []
+#   exclude_servers: []
+#   exclude_databases: []           # "master" is always excluded
+#   skip_database_statuses: []      # default: Offline, Disabled, Creating, Dropping, Inaccessible, Restoring
+#   include_secondaries: false      # geo/named replicas hold a COPY of another database — skipped
+#   include_datawarehouse: false    # dedicated SQL pools on a logical server — skipped
+
+#   inventory:                      # used only when source: inventory
+#     - resource_group: ResourceGroup1
+#       servers:
+#         - name: SQLServer1
+#           location: Central India
+#           databases: [SalesDB]
+#         - name: SQLServer2
+#           location: East US
+#           databases: [HRDB]
+#     - resource_group: ResourceGroup2
+#       servers:
+#         - name: SQLServer3
+#           location: Central India
+#           databases: [FinanceDB]
+#         - name: SQLServer4
+#           location: East US
+#           databases: [AuditDB]
+#     # Optional per server:  host: myserver.database.windows.net
+
+
+azure_topology:
+  source: inventory
+  inventory:
+    - resource_group: ingredion-dev-rg-central-india
+      servers:
+        - name: ingredion-dev-server-central-indiaa
+          location: Central India
+          databases: [ingredion-dev-db-central-india]
+    - resource_group: ingredion-dev-rg-east-us
+      servers:
+        - name: ingredion-dev-server-east-us
+          location: East US
+          databases: [ingredion-dev-db-east-us]
+# ---------------------------------------------------------------------------------------
+# Source connection (applies to every discovered database)
+# ---------------------------------------------------------------------------------------
+source:
+  type: mssql
+  driver: "ODBC Driver 18 for SQL Server"
+  host_template: "{server}.database.windows.net"   # inventory mode only; ARM returns the real FQDN
+  auth: sql                        # sql | entra_service_principal | entra_managed_identity
+  application_intent: ReadWrite    # ReadOnly routes to a read replica on Premium/Business Critical
+                                   # (don't use ReadOnly together with no_pk_strategy: shadow_table)
+  login_timeout_seconds: 60
+  odbc_options: {}                 # extra ODBC keywords
+  schemas: []                      # [] = every schema; or e.g. [dbo, sales] as a permanent scope
+
+# Where secrets come from: env (.env) always; optionally Google Secret Manager too
+secrets:
+  provider: env                    # env | gcp_secret_manager
+  project: null                    # Secret Manager project (secret id = variable name lower-cased, "_" -> "-")
+  # Variable names tried for every SQL server, first one that is set wins. Placeholders are the
+  # Azure names upper-cased, non-letters/digits -> "_":
+  #   resource group ingredion-dev-rg-central-india     -> {RESOURCE_GROUP} INGREDION_DEV_RG_CENTRAL_INDIA
+  #   server ingredion-dev-server-central-indiaa        -> {SERVER} INGREDION_DEV_SERVER_CENTRAL_INDIAA
+  #   {FIELD} = USERNAME | PASSWORD (| CLIENT_ID | CLIENT_SECRET for Entra auth)
+  #   {LOCATION} = centralindia -> CENTRALINDIA, {DATABASE} also available
+  sql_name_templates:
+    - "{RESOURCE_GROUP}_AZURE_SQL_{SERVER}_{FIELD}"   # INGREDION_DEV_RG_CENTRAL_INDIA_AZURE_SQL_INGREDION_DEV_SERVER_CENTRAL_INDIAA_USERNAME
+    - "AZURE_SQL_{SERVER}_{FIELD}"
+    - "AZURE_SQL_{FIELD}_{SERVER}"                     # previous versions' style
+    - "AZURE_SQL_{FIELD}_{RESOURCE_GROUP}"
+    - "AZURE_SQL_{FIELD}_{LOCATION}"
+    - "AZURE_SQL_{FIELD}"                              # one login for every server
+  # {NAME} = AZURE_STORAGE_CONNECTION_STRING | AZURE_SAS_TOKEN, {ACCOUNT} = staging storage account
+  storage_name_templates:
+    - "{RESOURCE_GROUP}_{NAME}"
+    - "{NAME}_{ACCOUNT}"
+    - "{NAME}_{LOCATION}"
+    - "{NAME}"                                         # AZURE_SAS_TOKEN / AZURE_STORAGE_CONNECTION_STRING
+  fuzzy_match: true                # accept names that differ only in "_" (typos), with a warning
+
+# ---------------------------------------------------------------------------------------
+# Moving files Azure -> GCS
+# ---------------------------------------------------------------------------------------
+transfer:
+  # sts    = Azure Blob staging + one Storage Transfer job per chunk (run the extractor in Azure,
+  #          next to the SQL server, for this mode)
+  # direct = upload straight to GCS (run the extractor in GCP: Cloud Shell / Composer / GCE)
+  mode: sts
+
+azure:                             # used by transfer.mode: sts
+  storage_account: ingrediondevstg01         # default staging account
+  storage_accounts_by_location: {}           # keep staged data in-region (recommended for India):
+  #   centralindia: mystagingindia
+  #   eastus: mystagingus
+  container: migration-staging
+  upload:
+    connection_timeout_seconds: 300
+    read_timeout_seconds: 300
+    max_block_size_bytes: 8388608
+    max_concurrency: 4
+    max_retries: 3
+    retry_backoff_seconds: 5
+
+sts:
+  poll_interval_seconds: 15
+  timeout_seconds: 3600
+  delete_jobs_after_run: true
+
+# ---------------------------------------------------------------------------------------
+# GCP target — every name is derived from the Azure hierarchy (src/topology/naming.py)
+# ---------------------------------------------------------------------------------------
+gcp:
+  projects:
+    create_missing: true
+    parent: null                    # "organizations/<id>" or "folders/<id>"
+    billing_account: "billingAccounts/018F8A-EAB73A-0C58E8"               # "billingAccounts/XXXXXX-XXXXXX-XXXXXX"
+    require_billing: true
+    id_prefix: ""                   # project ids are GLOBAL: e.g. "acme" -> acme-resourcegroup1
+    id_suffix: ""
+    id_overrides: {}                # {ResourceGroup1: acme-sales-prod}
+    labels: {}
+    enable_apis: []
+    api_ready_timeout_seconds: 240
+
+  datasets:
+    name_template: "{server}_{database}"      # {server} {database} {resource_group}
+    overrides: {}                             # {"sqlserver1/SalesDB": sales_india}
+
+  location_mapping:
+    strategy: closest               # closest | multi_region
+    overrides: {}                   # {"Central India": asia-south1, "East US": US}
+
+  table_naming:
+    schema_prefix: non_default      # dbo.Orders -> Orders, sales.Orders -> sales__Orders
+    default_schema: dbo
+    separator: "__"
+
+  column_naming: sanitize           # sanitize ("Order Date" -> Order_Date) | keep (flexible names)
+
+  target_tables:
+    cluster_by_key: true            # cluster targets on their key: cheaper, faster MERGEs
+
+  landing_bucket:
+    name_template: "{project_id}-landing-{location}"
+    grant_sts_access: true
+    retention_days: 7               # lifecycle rule: landed Parquet deleted after N days (0 = keep)
+
+  control:
+    dataset_prefix: migration_control   # -> migration_control_<location> in every project
+
+types:
+  datetime_as: DATETIME             # datetime/datetime2/smalldatetime -> DATETIME (wall clock, no zone)
+                                    # TIMESTAMP = old behaviour (values treated as UTC)
+
+# ---------------------------------------------------------------------------------------
+# Extraction & loading
+# ---------------------------------------------------------------------------------------
+extraction:
+  batch_size: 50000                 # rows per page / Parquet file
+  batches_per_chunk: 40             # files per chunk: one transfer + one load + one MERGE per chunk
+                                    # (50k x 40 = 2M rows; keeps BigQuery far below its daily
+                                    #  1,500-loads-per-table limit even for billion-row tables)
+  local_dir: data                   # local spool for Parquet files (deleted after each chunk)
+  no_pk_strategy: stream            # tables without PK/unique index, full loads only:
+                                    #   stream       one forward-only read, nothing written to the source
+                                    #   shadow_table materialise a row-number copy in the source (resumable)
+                                    #   exclude      skip them
+  # OPTIONAL cutoff for FULL loads: only rows with <cutoff_column> on/before this date.
+  # Override per run with --cutoff-date YYYY-MM-DD or --cutoff-date none.
+  cutoff_date: null
+  cutoff_column: updatedAt
+  missing_cutoff_column: error      # error | skip_filter | exclude
+
+incremental:
+  watermark_column: null            # force one column name for every table (rarely wanted)
+  watermark_columns: [updatedAt, updated_at, UpdatedDate, ModifiedDate, ModifiedOn, modified_at,
+                      LastModified, LastModifiedDate, LastUpdated, UpdateDate]
+  # picked in this order: tables_override watermark_column -> rowversion column -> first of
+  # watermark_columns -> single increasing key column (append-only)
+  initial_watermark_from_target: true   # first incremental run continues after MAX(watermark) already in BigQuery
+  no_watermark: skip                # skip | full   (what to do with a table that has no watermark)
+
+validation:
+  row_count: true                   # full loads: compare source COUNT(*) with the BigQuery row count
+  fail_on_mismatch: false           # true = a mismatch fails the table
+
+cleanup:
+  local_files: true                 # delete local Parquet once its chunk is merged
+  azure_staging: true               # delete staged blobs once the chunk is in GCS
+  gcs_after_load: false             # delete landed files right after loading (else lifecycle rule)
+
+locking:
+  enabled: true                     # one runner per table (full DAG vs incremental DAG vs retries)
+  ttl_seconds: 7200                 # a crashed run's lease expires after this
+  wait_seconds: 0                   # wait this long for a busy table before giving up
+
+metadata:                           # tables in <project>.migration_control_<location>
+  log_table: migration_pipeline_logs
+  checkpoint_table: migration_checkpoint
+  audit_table: migration_audit
+  report_table: migration_report
+  lock_table: migration_lock
+  objects_table: migration_sql_objects
+  objects_history_table: migration_sql_object_history
+
+# ---------------------------------------------------------------------------------------
+# Raw views / stored procedures (python3 main.py --objects ...) — ORIGINAL T-SQL, not translated.
+# T-SQL does not run in BigQuery, so nothing is created as a BigQuery view/routine here. Every
+# definition is stored byte for byte, ready for the translation phase:
+#   BigQuery  <project>.migration_control_<location>.migration_sql_objects   (latest, translation_status PENDING)
+#             <project>.migration_control_<location>.migration_sql_object_history  (every version)
+#   GCS       gs://<landing bucket>/sql_objects/<rg>/<server>/<db>/<views|procedures>/<schema>.<name>.sql
+#   local     <export.local_dir>/<rg>/<server>/<db>/<views|procedures>/<schema>.<name>.sql + manifest.json
+# ---------------------------------------------------------------------------------------
+objects:
+  types: [views, procedures]       # default for --objects; also: functions, triggers, all
+  bigquery: true                   # store definitions in migration_sql_objects (+ history)
+  mark_dropped: true               # full-database runs mark objects deleted in Azure as DROPPED_IN_SOURCE
+  upload_parallel: 8               # parallel GCS uploads per database
+  export:
+    local_dir: output/sql_objects  # null = no local copy
+    gcs: true                      # copy .sql files + manifest.json to the landing bucket (never expire)
+    gcs_prefix: sql_objects
+
+overrides_file: config/tables_override.yaml   # optional per-table settings
+plans_dir: logs/plans                         # read-only plan snapshots: <project>/<dataset>.yaml

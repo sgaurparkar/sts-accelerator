@@ -1,0 +1,7 @@
+-- Probe 056: TRY_PARSE()
+CREATE PROCEDURE dbo.probe_056_try_parse
+AS
+BEGIN
+    SELECT TRY_PARSE(Name AS DATE) AS a FROM dbo.T;
+END
+GO

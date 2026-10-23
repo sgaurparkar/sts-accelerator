@@ -1,0 +1,5 @@
+-- Reference only. The staging table lives in the CONTROL dataset and is (re)created by every
+-- chunk's load job: WRITE_TRUNCATE from gs://<bucket>/parquet/.../<chunk>/*.parquet with an
+-- explicit schema (DATETIME source columns are staged as TIMESTAMP and cast in the MERGE).
+-- It is dropped when the table finishes.
+--   `{project}.{control_dataset}.stg__{dataset}__{table}`

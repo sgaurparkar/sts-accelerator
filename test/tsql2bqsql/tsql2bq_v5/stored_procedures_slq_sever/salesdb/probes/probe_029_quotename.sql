@@ -1,0 +1,7 @@
+-- Probe 029: QUOTENAME()
+CREATE PROCEDURE dbo.probe_029_quotename
+AS
+BEGIN
+    SELECT QUOTENAME('a b') AS q;
+END
+GO

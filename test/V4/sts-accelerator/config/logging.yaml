@@ -1,0 +1,14 @@
+# Logging and reporting behaviour.
+
+level: INFO                    # DEBUG | INFO | WARNING   (--log-level overrides)
+
+# Raw per-event JSON logs. null = gcs://<landing bucket>/pipeline_logs/raw/<rg>/<server>/<db>/...
+# (durable and shared across Composer workers). A local folder works too.
+raw_log_path: null
+write_raw_logs: true
+
+# Every event is also written to <control dataset>.migration_pipeline_logs
+write_logs_to_bigquery: true
+
+# Local JSON copy of the table-by-table report (the BigQuery copy is migration_report)
+report_output_path: logs/reports

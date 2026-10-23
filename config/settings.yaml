@@ -6,8 +6,8 @@
 
 source:
   type: mssql                      # only mssql is supported
-  host: sql-to-gcp-poc-server2.database.windows.net   # fallback only — overridden by --region (see `regions:` below)
-  database: sales_poc                                  # same database name on every regional server unless a region sets its own
+  host: ingredion-dev-server-central-indiaa.database.windows.net   # fallback only — overridden by --region (see `regions:` below)
+  database: ingredion-dev-db-central-india                                 # same database name on every regional server unless a region sets its own
   driver: "ODBC Driver 18 for SQL Server"
   schemas: []                      # which SQL Server schemas to discover tables from.
                                     # Leave empty ([]) to auto-discover EVERY schema that
@@ -37,16 +37,16 @@ source:
 # (e.g. _EAST_US) when a region's server has its own login — see .env.example.
 regions:
   Central US:
-    host: central-us.database.windows.net
+    host: ingredion-dev-server-central-indiaa.database.windows.net
     database: sales1_poc
     gcp_location: us-central1
   Central India:
-    host: sql-to-gcp-poc-server2.database.windows.net
-    database: sales_poc
+    host: ingredion-dev-server-central-indiaa.database.windows.net
+    database: ingredion-dev-db-central-india  
     gcp_location: asia-south1      # Mumbai, the closest GCP region to Central India
  
 azure:
-  storage_account: storageaccount8791511009
+  storage_account: ingrediondevstg01
   container: migration-staging
   # sas_token / connection string are read from .env — never stored here
   upload:

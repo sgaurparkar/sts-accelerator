@@ -1,0 +1,7 @@
+-- Probe 031: FORMATMESSAGE()
+CREATE PROCEDURE dbo.probe_031_formatmessage
+AS
+BEGIN
+    SELECT FORMATMESSAGE('x %d', 5) AS m;
+END
+GO

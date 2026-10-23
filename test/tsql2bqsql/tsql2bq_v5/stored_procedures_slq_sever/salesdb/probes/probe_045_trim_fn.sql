@@ -1,0 +1,7 @@
+-- Probe 045: LTRIM / RTRIM / TRIM
+CREATE PROCEDURE dbo.probe_045_trim_fn
+AS
+BEGIN
+    SELECT LTRIM(RTRIM(Name)) AS t, TRIM(Name) AS u FROM dbo.T;
+END
+GO

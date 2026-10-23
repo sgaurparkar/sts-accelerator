@@ -1,0 +1,7 @@
+-- Probe 022: HOST_NAME() / APP_NAME()
+CREATE PROCEDURE dbo.probe_022_host_app
+AS
+BEGIN
+    SELECT HOST_NAME() AS h, APP_NAME() AS a;
+END
+GO

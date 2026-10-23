@@ -1,0 +1,7 @@
+-- Probe 074: TOP n PERCENT
+CREATE PROCEDURE dbo.probe_074_top_percent
+AS
+BEGIN
+    SELECT TOP 10 PERCENT Id FROM dbo.T ORDER BY Id;
+END
+GO

@@ -1,0 +1,7 @@
+-- Probe 006: NEWID()
+CREATE PROCEDURE dbo.probe_006_newid
+AS
+BEGIN
+    SELECT NEWID() AS g;
+END
+GO

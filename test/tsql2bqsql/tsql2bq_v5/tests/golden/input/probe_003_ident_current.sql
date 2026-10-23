@@ -1,0 +1,7 @@
+-- Probe 003: IDENT_CURRENT()
+CREATE PROCEDURE dbo.probe_003_ident_current
+AS
+BEGIN
+    SELECT IDENT_CURRENT('dbo.T') AS i;
+END
+GO

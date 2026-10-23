@@ -1,0 +1,7 @@
+-- Probe 090: WAITFOR DELAY
+CREATE PROCEDURE dbo.probe_090_waitfor
+AS
+BEGIN
+    WAITFOR DELAY '00:00:01';
+END
+GO

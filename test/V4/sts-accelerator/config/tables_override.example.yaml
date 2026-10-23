@@ -1,0 +1,33 @@
+# Copy to config/tables_override.yaml to use. Everything here is OPTIONAL.
+#
+# An entry matches a table by `name` (+ optional `schema`) and can be scoped to one
+# Azure database with resource_group / server / database. The most specific entry wins.
+#
+# Keys:
+#   exclude: true                never migrate this table
+#   bq_table: <name>             BigQuery table name
+#   load_mode: full|incremental  used when a run uses --mode auto (the default)
+#   watermark_column: <column>   incremental: the change-tracking column
+#   key_columns: [a, b]          merge key for a table with no PK / unique index
+#   no_pk_strategy: stream|shadow_table|exclude
+overrides:
+  # synced by the incremental DAG and by `main.py --all --incremental-only`
+  - name: Orders
+    schema: dbo
+    server: sqlserver1
+    database: SalesDB
+    load_mode: incremental
+    watermark_column: ModifiedDate
+
+  # a heap with a natural key
+  - name: OrderLines
+    schema: dbo
+    key_columns: [OrderId, LineNo]
+
+  - name: __scratch
+    exclude: true
+
+  - name: Employees
+    schema: hr
+    database: HRDB
+    bq_table: employees

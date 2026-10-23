@@ -1,0 +1,7 @@
+-- Probe 059: HASHBYTES()
+CREATE PROCEDURE dbo.probe_059_hashbytes
+AS
+BEGIN
+    SELECT HASHBYTES('SHA2_256', Name) AS h FROM dbo.T;
+END
+GO

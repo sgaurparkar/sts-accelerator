@@ -1,0 +1,11 @@
+-- Probe 016: SAVE TRANSACTION (savepoint)
+CREATE PROCEDURE dbo.probe_016_save_transaction
+AS
+BEGIN
+    BEGIN TRANSACTION;
+    SAVE TRANSACTION sp1;
+    UPDATE dbo.T SET Name = 'x';
+    ROLLBACK TRANSACTION sp1;
+    COMMIT TRANSACTION;
+END
+GO

@@ -1,0 +1,7 @@
+-- Probe 020: OBJECT_ID()
+CREATE PROCEDURE dbo.probe_020_object_id
+AS
+BEGIN
+    IF OBJECT_ID('dbo.T') IS NOT NULL SELECT 1 AS e;
+END
+GO

@@ -1,0 +1,7 @@
+-- Probe 038: DATALENGTH()
+CREATE PROCEDURE dbo.probe_038_datalength
+AS
+BEGIN
+    SELECT DATALENGTH(Name) AS d FROM dbo.T;
+END
+GO

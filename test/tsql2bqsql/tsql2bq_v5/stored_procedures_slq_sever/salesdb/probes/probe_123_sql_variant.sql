@@ -1,0 +1,8 @@
+-- Probe 123: SQL_VARIANT
+CREATE PROCEDURE dbo.probe_123_sql_variant
+AS
+BEGIN
+    DECLARE @v SQL_VARIANT = 1;
+    SELECT @v AS v;
+END
+GO

@@ -1,0 +1,7 @@
+-- Probe 098: SET IDENTITY_INSERT
+CREATE PROCEDURE dbo.probe_098_identity_insert
+AS
+BEGIN
+    SET IDENTITY_INSERT dbo.T ON;
+END
+GO

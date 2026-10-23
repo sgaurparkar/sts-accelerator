@@ -1,0 +1,7 @@
+-- Probe 055: TRY_CONVERT() / TRY_CAST()
+CREATE PROCEDURE dbo.probe_055_try_convert
+AS
+BEGIN
+    SELECT TRY_CONVERT(INT, Name) AS a, TRY_CAST(Name AS INT) AS b FROM dbo.T;
+END
+GO

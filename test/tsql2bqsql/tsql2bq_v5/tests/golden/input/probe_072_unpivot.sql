@@ -1,0 +1,7 @@
+-- Probe 072: UNPIVOT
+CREATE PROCEDURE dbo.probe_072_unpivot
+AS
+BEGIN
+    SELECT * FROM dbo.T UNPIVOT (Val FOR Col IN (A, B)) AS u;
+END
+GO

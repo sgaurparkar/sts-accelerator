@@ -1,0 +1,8 @@
+-- Probe 106: IF EXISTS (...) ... ELSE
+CREATE PROCEDURE dbo.probe_106_if_exists
+AS
+BEGIN
+    IF EXISTS (SELECT 1 FROM dbo.T WHERE Id = 1) SELECT 1 AS a;
+    ELSE SELECT 0 AS a;
+END
+GO

@@ -1,0 +1,7 @@
+-- Probe 026: SESSION_CONTEXT()
+CREATE PROCEDURE dbo.probe_026_session_context
+AS
+BEGIN
+    SELECT SESSION_CONTEXT(N'k') AS v;
+END
+GO

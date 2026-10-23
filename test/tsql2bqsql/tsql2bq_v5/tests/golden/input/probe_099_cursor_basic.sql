@@ -1,0 +1,14 @@
+-- Probe 099: CURSOR (forward-only) + @@FETCH_STATUS
+CREATE PROCEDURE dbo.probe_099_cursor_basic
+AS
+BEGIN
+    DECLARE c CURSOR FOR SELECT Id FROM dbo.T;
+    DECLARE @i INT;
+    OPEN c;
+    FETCH NEXT FROM c INTO @i;
+    WHILE @@FETCH_STATUS = 0 BEGIN UPDATE dbo.T SET Name = 'x' WHERE Id = @i;
+    FETCH NEXT FROM c INTO @i;
+    END CLOSE c;
+    DEALLOCATE c;
+END
+GO

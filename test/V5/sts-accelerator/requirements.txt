@@ -1,0 +1,27 @@
+# Pinned so a fresh install behaves like the tested one. Upgrade deliberately.
+pyarrow==18.1.0
+pyyaml==6.0.2
+python-dotenv==1.0.1
+sqlalchemy==2.0.36
+pyodbc==5.2.0
+
+# Google Cloud
+google-api-core==2.24.0
+google-cloud-bigquery==3.27.0
+google-cloud-storage==2.19.0
+google-cloud-storage-transfer==1.15.0
+google-cloud-resource-manager==1.14.0
+google-cloud-billing==1.15.0
+google-cloud-service-usage==1.12.0
+google-cloud-secret-manager==2.22.0     # only used with secrets.provider: gcp_secret_manager
+
+# Azure
+azure-storage-blob==12.24.0
+azure-identity==1.19.0
+azure-mgmt-sql==3.0.1
+
+# Tests (sqlglot checks the generated T-SQL / BigQuery SQL parses)
+pytest==8.3.4
+sqlglot==25.34.1
+
+# Airflow is provided by Cloud Composer (apache-airflow>=2.4); not needed for CLI runs.

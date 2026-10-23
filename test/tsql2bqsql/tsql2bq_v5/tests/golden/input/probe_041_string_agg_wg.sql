@@ -1,0 +1,7 @@
+-- Probe 041: STRING_AGG ... WITHIN GROUP (ORDER BY)
+CREATE PROCEDURE dbo.probe_041_string_agg_wg
+AS
+BEGIN
+    SELECT STRING_AGG(Name, ',') WITHIN GROUP (ORDER BY Name) AS s FROM dbo.T;
+END
+GO

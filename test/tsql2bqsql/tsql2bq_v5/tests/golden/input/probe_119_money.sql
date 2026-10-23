@@ -1,0 +1,8 @@
+-- Probe 119: MONEY / SMALLMONEY
+CREATE PROCEDURE dbo.probe_119_money
+AS
+BEGIN
+    DECLARE @m MONEY = 1.2345, @s SMALLMONEY = 2;
+    SELECT @m + @s AS t;
+END
+GO

@@ -1,0 +1,2 @@
+# Nothing to install: a tested copy of sqlglot is bundled in vendor/ and always used.
+# (A different pip-installed sqlglot version changes the AST and breaks conversions.)

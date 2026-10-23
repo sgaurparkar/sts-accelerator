@@ -1,0 +1,7 @@
+-- Probe 073: TOP n WITH TIES
+CREATE PROCEDURE dbo.probe_073_top_ties
+AS
+BEGIN
+    SELECT TOP 3 WITH TIES Id, Amount FROM dbo.T ORDER BY Amount DESC;
+END
+GO

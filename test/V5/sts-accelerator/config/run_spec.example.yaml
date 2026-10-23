@@ -1,0 +1,58 @@
+# Several jobs in one run:   python3 main.py --spec config/run_spec.example.yaml [--dry-run] [--parallel 4]
+# Jobs run in order; the tables of one job run in parallel (--parallel / --max-per-server).
+#
+# Job keys (all optional except a table selection):
+#   name, resource_groups, servers, databases, azure_locations, schemas
+#   tables | all_tables: true | tables_file, exclude_tables
+#   mode: auto | full | incremental | partial
+#   where, date_column, from, to (exclusive), replace_range        (partial)
+#   cutoff_date (full; "none" disables), force, stage (bq | gcs), only_modes
+#   objects: [views, procedures, functions, triggers | all]     raw T-SQL, not translated
+#   object_names, exclude_objects                              same pattern syntax as tables
+# A job may have tables, objects, or both (tables run first).
+
+defaults:
+  mode: full
+
+jobs:
+  # 1) one whole database, full copy
+  - name: sales-full
+    resource_groups: [ResourceGroup1]
+    databases: [SalesDB]
+    all_tables: true
+    exclude_tables: ["dbo.tmp_*", "dbo.*_backup"]
+
+  # 2) a list of tables from another database, incremental
+  - name: hr-incremental
+    databases: [HRDB]
+    tables: [dbo.Employees, dbo.Payroll, hr.*]
+    mode: incremental
+
+  # 3) one month of one table, re-synced including deletes in that month
+  - name: finance-march
+    databases: [FinanceDB]
+    tables: [dbo.Transactions]
+    mode: partial
+    date_column: TxnDate
+    from: 2026-03-01
+    to: 2026-04-01
+    replace_range: true
+
+  # 4) tables of several databases picked by fully-qualified pattern
+  - name: audit-and-hr
+    tables:
+      - sqlserver4/AuditDB/dbo.AuditLog
+      - HRDB/dbo.Departments
+
+  # 5) raw views + stored procedures of one database (original T-SQL, NOT translated)
+  - name: sales-raw-objects
+    databases: [SalesDB]
+    objects: [views, procedures]
+    exclude_objects: ["dbo.tmp_*", "*.bak_*"]
+
+  # 6) a few named procedures across databases
+  - name: selected-procs
+    objects: [procedures]
+    object_names:
+      - SalesDB/dbo.usp_Load*
+      - HRDB/hr.usp_Payroll

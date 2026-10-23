@@ -1,0 +1,7 @@
+-- Probe 057: ISNUMERIC()
+CREATE PROCEDURE dbo.probe_057_isnumeric
+AS
+BEGIN
+    SELECT ISNUMERIC(Name) AS n FROM dbo.T;
+END
+GO

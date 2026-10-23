@@ -1,0 +1,7 @@
+-- Probe 048: DATEPART() / DATENAME()
+CREATE PROCEDURE dbo.probe_048_datepart_name
+AS
+BEGIN
+    SELECT DATEPART(WEEKDAY, CreatedAt) AS a, DATENAME(MONTH, CreatedAt) AS b FROM dbo.T;
+END
+GO
