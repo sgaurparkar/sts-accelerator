@@ -1,0 +1,21 @@
+pandas
+pyarrow
+pyyaml
+python-dotenv
+
+# Google Cloud
+google-api-core
+google-cloud-bigquery
+google-cloud-storage
+google-cloud-storage-transfer
+
+# Azure
+azure-storage-blob
+
+# Airflow providers (only needed inside Composer, not for local/Cloud Shell testing)
+# apache-airflow-providers-google
+# apache-airflow-providers-microsoft-azure
+
+# SQL Server connectivity (source.type: mssql is the only supported source)
+sqlalchemy
+pyodbc

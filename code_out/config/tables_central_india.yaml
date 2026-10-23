@@ -1,0 +1,52 @@
+_generated_by: "src/planner/table_planner.py \u2014 rewritten on every run, do not\
+  \ hand-edit"
+region: Central India
+tables:
+- schema: dbo
+  name: dataset-06-10
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full
+- schema: dbo
+  name: dummy_dataset_100000--06-10
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full
+- schema: dbo
+  name: India_Cities_LatLng
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: dbo
+  name: indian airlines
+  primary_key:
+  - column1
+  synthetic_key: false
+  load_mode: full
+- schema: dbo
+  name: test1
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full
+- schema: dbo
+  name: test11
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full
+- schema: dbo
+  name: transactions_all
+  primary_key:
+  - source_row_id
+  synthetic_key: true
+  load_mode: full
+- schema: sales
+  name: dataset02--06-10
+  primary_key:
+  - id
+  synthetic_key: false
+  load_mode: full
